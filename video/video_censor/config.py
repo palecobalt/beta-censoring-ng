@@ -21,10 +21,11 @@ class Settings:
     sample_fps: float = 5.0
     # longest side of the frames sent to the model
     sample_size: int = 640
-    # each frame is censored with the matches from samples up to this many sample intervals away
-    hold_samples: int = 1
+    # each frame is censored with the matches from samples up to this many sample intervals away,
+    # so something the model misses on one or two samples in a row stays covered
+    hold_samples: int = 2
     # boxes grow by this fraction of their size on each side, to cover movement between samples
-    motion_padding: float = 0.05
+    motion_padding: float = 0.15
     detect_batch: int = 16
     detect_concurrency: int = 2
     detect_timeout: float = 120.0

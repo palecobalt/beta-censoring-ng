@@ -33,12 +33,16 @@ services:
       CENSOR_URL: http://beta-censoring:2382
       CENSOR_CONCURRENCY: "6"
       CENSOR_ON_ERROR: block
+      VIDEO_CENSOR_URL: http://video-censor:2383
+      # "block" or "pass" for video that can't be censored (adaptive streams, long clips)
+      VIDEO_POLICY: block
     volumes:
       - ./proxy:/addon:ro
       # keeps the proxy's certificate authority across restarts
       - mitmproxy-ca:/home/mitmproxy/.mitmproxy
     depends_on:
       - beta-censoring
+      - video-censor
     logging: *logging
     restart: unless-stopped
 

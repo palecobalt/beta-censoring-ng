@@ -132,6 +132,14 @@ of each other.
   timeout, AVIF/JPEG XL) with a grey placeholder; `pass` lets them through.
 - `CENSOR_MIN_BYTES`: images smaller than this are passed through untouched (default 4000).
 - `CENSOR_CONCURRENCY`, `CENSOR_TIMEOUT`: images censored at once, seconds per image.
+- `VIDEO_POLICY`: `block` (default) answers video that can't be censored (adaptive streams such as
+  Reddit and most X or YouTube video, clips over the limits, and failures) with an empty 403, so it
+  doesn't play; `pass` streams it through uncensored.
+- `VIDEO_CENSOR_URL`: the video service (`http://video-censor:2383`); set it empty to turn video
+  censoring off, which sends all video to `VIDEO_POLICY`.
+- `VIDEO_MAX_MB` (25), `VIDEO_TIMEOUT` (120), `VIDEO_CACHE_MB` (256): the largest clip to censor (keep
+  it in line with the video service's limit), seconds to wait for the video service, and memory for
+  censored clips kept for repeat and range requests.
 - `PROXY_PORT` (in `.env`): the host port the proxy is published on, if 8080 is already taken
   (default 8080).
 
@@ -141,17 +149,23 @@ of each other.
 - Animated GIFs are censored frame by frame: the model runs on a frame every 200 ms of animation
   time and frames in between reuse the nearby boxes (see the animation settings in
   `config.example.yml`). On an RTX 3060 Ti host a 35–81 frame GIF takes about 3 s, and it only appears once every
-  frame is done. Videos are not censored.
+  frame is done.
+- Short video clips are censored by `video-censor` (see "Video clip censoring" below). A clip only
+  starts playing once it has been downloaded and censored, typically 5–15 s for a clip of up to
+  20 s. Longer videos and adaptive streams follow `VIDEO_POLICY`.
 - Pages wait for each image to be censored, so image-heavy pages load noticeably slower.
 - The proxy can read everything that passes through it, and anyone holding its CA key (stored in
   the `mitmproxy-ca` Docker volume) could impersonate sites to browsers that trust it. Keep port
   8080 on your LAN, and consider not routing banking or similar sites through it (for example with
   a proxy-switching extension, or mitmproxy's `ignore_hosts` option).
 
-## Video clip censoring (in progress)
+## Video clip censoring
 
-`docker compose` also starts `video-censor` on port 2383, which censors short video clips. The
-proxy doesn't send videos to it yet.
+`docker compose` also starts `video-censor` on port 2383, which censors short video clips for the
+proxy. The proxy sends it complete MP4, WebM and Ogg files up to `VIDEO_MAX_MB`, and answers the
+browser with the censored clip once it's done, as one complete response without byte ranges.
+Censored clips are kept in memory, so replays and range requests don't go back to the origin.
+Everything else that's video follows `VIDEO_POLICY` (see the proxy settings).
 
 `POST /censor` with the clip as the request body (MP4, WebM, Ogg, or anything else ffmpeg reads)
 and the censor options as JSON in an `X-Censor-Options` header returns the clip as H.264 MP4 with
@@ -163,8 +177,10 @@ How it works:
 
 - The model runs on 5 frames per second, scaled to 640 px, through Beta Censoring's
   `/censoring/detectBatch`, with the same box scaling and merging as images.
-- Every frame is censored with the boxes from the samples on either side of it, enlarged by 5%
-  to cover movement, so a single missed detection doesn't uncover anything.
+- Every frame is censored with the boxes from the samples up to two sample intervals either side
+  of it, plus boxes moved along with anything that moves between samples, all enlarged by 15% on
+  each side. Something the model misses on one or two samples in a row stays covered unless it
+  moves out of its last box. Fast movement the model loses track of can still be uncovered briefly.
 - Blur, pixelation and black bars match the strength of the image effects at each level; stickers
   and captions are drawn as blur. Unlike on images, blur and pixelation cover the whole box and
   fade out just outside it.
@@ -178,8 +194,9 @@ Settings (environment variables on `video-censor`):
 - `VIDEO_MAX_SHORT_SIDE` (1080), `VIDEO_MAX_FPS` (30): bigger or faster videos are scaled down.
 - `VIDEO_SAMPLE_FPS` (5), `VIDEO_SAMPLE_SIZE` (640): how often, and at what size, frames go
   through the model.
-- `VIDEO_HOLD_SAMPLES` (1), `VIDEO_MOTION_PADDING` (0.05): how many sample intervals matches carry
-  over, and how much boxes grow on each side.
+- `VIDEO_HOLD_SAMPLES` (2), `VIDEO_MOTION_PADDING` (0.15): how many sample intervals matches carry
+  over, and how much boxes grow on each side. Lower values censor less background around moving
+  parts but uncover more when the model misses something.
 - `VIDEO_ENCODER` (`auto`): `nvenc` or `x264` to force one.
 - `VIDEO_DETECT_BATCH` (16), `VIDEO_DETECT_CONCURRENCY` (2), `VIDEO_DETECT_TIMEOUT` (120): frames
   per detection request, requests at once, and seconds per request.

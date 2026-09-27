@@ -115,6 +115,15 @@ class PipelineTests(unittest.TestCase):
         self.assertFalse(result.censored)
         self.assertEqual(result.body, clip)
 
+    def test_returns_audio_only_files_unchanged(self):
+        path = os.path.join(self.work, "audio.webm")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:a", "libopus", path], check=True)
+        with open(path, "rb") as f:
+            audio = f.read()
+        result = pipeline.censor_clip(audio, OPTIONS, SETTINGS, "x264")
+        self.assertFalse(result.censored)
+        self.assertEqual(result.body, audio)
+
     def test_rotated_video_keeps_its_display_orientation(self):
         clip = self.make_clip(seconds=1, rotation=90)
         with mock.patch("video_censor.detect.detect_frames", fake_detection()):

@@ -4,6 +4,10 @@ class CensorError(Exception):
     status = 422
 
 
+class NoVideo(CensorError):
+    """The file has no video stream, e.g. audio served as video/webm."""
+
+
 class TooLarge(CensorError):
     """The clip is over the size or duration limit."""
 

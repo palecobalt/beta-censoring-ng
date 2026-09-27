@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import detect, effects, media, timeline
-from .errors import CensorError, EncodeFailed
+from .errors import CensorError, EncodeFailed, NoVideo
 
 
 @dataclass
@@ -32,7 +32,11 @@ def censor_clip(data: bytes, censor_options: dict, settings, encoder: str) -> Re
         source = os.path.join(work, "source")
         with open(source, "wb") as f:
             f.write(data)
-        info = media.probe(source)
+        try:
+            info = media.probe(source)
+        except NoVideo:
+            # audio only: nothing to censor
+            return Result(data, False, {"video": False})
         media.check_limits(info, len(data), settings)
         geometry = media.output_geometry(info, settings.max_short_side, settings.max_fps)
         step = timeline.sample_step(geometry.fps, settings.sample_fps)

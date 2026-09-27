@@ -5,7 +5,7 @@ import subprocess
 from dataclasses import dataclass
 from fractions import Fraction
 
-from .errors import CensorError, TooLarge
+from .errors import CensorError, NoVideo, TooLarge
 
 # audio that Firefox plays from MP4 can be copied; anything else is re-encoded as AAC
 MP4_AUDIO_CODECS = {"aac", "mp3", "opus", "flac"}
@@ -50,7 +50,7 @@ def parse_probe(data: dict) -> VideoInfo:
     video = next((s for s in streams if s.get("codec_type") == "video"
                   and not s.get("disposition", {}).get("attached_pic")), None)
     if video is None:
-        raise CensorError("no video stream")
+        raise NoVideo("no video stream")
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     width, height = int(video.get("width") or 0), int(video.get("height") or 0)
     if width <= 0 or height <= 0:
