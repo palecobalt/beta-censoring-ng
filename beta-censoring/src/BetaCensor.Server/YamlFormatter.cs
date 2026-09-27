@@ -33,6 +33,8 @@ namespace BetaCensor.Server
             SupportedEncodings.Add(Encoding.Unicode);
             var serializer = new SerializerBuilder()
                 .WithNamingConvention(PascalCaseNamingConvention.Instance)
+                // YamlDotNet 6 left out null and default values; newer versions write them unless told not to
+                .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitDefaults)
                 .Build();
             _serializer = serializer;
         }
