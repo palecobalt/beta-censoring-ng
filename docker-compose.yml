@@ -1,7 +1,7 @@
 services:
   beta-censoring:
     build: .
-    image: beta-censoring-v3
+    image: beta-censoring-ng
     container_name: beta-censoring
     ports:
       - "2382:2382"

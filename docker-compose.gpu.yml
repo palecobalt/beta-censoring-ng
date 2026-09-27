@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gpu
-    image: beta-censoring-v3-gpu
+    image: beta-censoring-ng-gpu
     environment:
       BCS_Server__UseGpu: "true"
       # model runs on the GPU at once; more than 1 caused "CUDA failure 716" errors under load

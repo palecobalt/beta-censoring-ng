@@ -1,9 +1,13 @@
-# Beta Censoring with NudeNet v3
+# beta-censoring-ng
 
-Patched copies of [censor-core](https://github.com/silveredgold/censor-core) and
-[beta-censoring](https://github.com/silveredgold/beta-censoring) (both GPL-3.0) that run the
-NudeNet v3 models (`320n`, `640m`) as well as the old v2 detector. Beta Protection works
-unchanged.
+A continuation of silveredgold's [beta-censoring](https://github.com/silveredgold/beta-censoring)
+server and [censor-core](https://github.com/silveredgold/censor-core) library (both GPL-3.0, no
+longer updated since 2023). It runs the NudeNet v3 models (`320n`, `640m`) as well as the old v2
+detector, and adds GPU inference, detection-only endpoints, a censoring proxy that works without
+the browser extension, and video clip censoring. Beta Protection works unchanged.
+
+Both upstream repositories are included with their full history, in `censor-core/` and
+`beta-censoring/`.
 
 ## What changed
 
@@ -26,8 +30,6 @@ unchanged.
   find nothing and abort with "Failed to retrieve AI model!").
 - The server builds against the local censor-core source instead of the NuGet packages.
 
-Full diff: `nudenet-v3-support.patch`.
-
 ## Test results
 
 On a 4 vCPU VM with 17 non-explicit Wikimedia Commons photos (beach volleyball, swimwear, yoga,
@@ -44,9 +46,19 @@ barefoot runners):
 Observations from the sample: all three models (v2, 320n, 640m) labelled some men's faces
 `FACE_F`. 320n and v2 flagged bikini areas as `EXPOSED_*` at 0.3–0.6; 640m labelled them covered.
 
+## Models
+
+The NudeNet model weights are not part of this repository. `scripts/fetch-models.sh` downloads
+`320n.onnx` and `640m.onnx` from NudeNet's `v3.4-weights` release into `models/` and checks their
+SHA-256; the Docker build copies them from there. Without Docker, the server can also fetch a
+model itself at startup when `ModelPath` doesn't exist (it takes `320n.onnx` from the newest
+NudeNet release). NudeNet and its models are published by
+[notAI-tech](https://github.com/notAI-tech/NudeNet) under the AGPL-3.0.
+
 ## Run with Docker
 
 ```bash
+scripts/fetch-models.sh
 docker compose up -d --build
 ```
 
@@ -70,7 +82,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
 or put `COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml` in a `.env` file so plain
-`docker compose` commands use it (that's how the test host is set up).
+`docker compose` commands use it.
 
 - **Requirements:** an NVIDIA driver with CUDA 12 support and the NVIDIA container toolkit.
   ONNX Runtime 1.26 is the newest release built for CUDA 12; 1.27 and later need CUDA 13
@@ -226,3 +238,14 @@ the Docker build does this. The censoring API works either way.
 - The v3 thresholds were picked from a small non-explicit sample; tune `MatchOptions` if it
   censors too much or too little.
 - GPU acceleration: CUDA on Linux with the GPU build (see above); DirectML on Windows is untested.
+
+## Credits and licence
+
+- [censor-core](https://github.com/silveredgold/censor-core) and
+  [beta-censoring](https://github.com/silveredgold/beta-censoring) by silveredgold, GPL-3.0.
+  Their commit histories are included unchanged apart from the move into subdirectories.
+- [NudeNet](https://github.com/notAI-tech/NudeNet) by notAI-tech (AGPL-3.0) provides the detection
+  models, which are downloaded separately.
+
+This project is licensed under the GNU General Public License v3.0, like the originals (see
+`censor-core/LICENSE` and `beta-censoring/LICENSE`). `NOTICE` describes what has been modified.

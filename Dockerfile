@@ -1,6 +1,7 @@
-# Beta Censoring server with NudeNet v3 support, built from the patched sources in this folder.
-#   docker build -t beta-censoring-v3 .
-#   docker run -d -p 2382:2382 --name beta-censoring beta-censoring-v3
+# Beta Censoring server with NudeNet v3 support, built from the sources in this repository.
+# Run scripts/fetch-models.sh first: the models are copied from models/.
+#   docker build -t beta-censoring-ng .
+#   docker run -d -p 2382:2382 --name beta-censoring beta-censoring-ng
 # Choose the model with BCS_ModelPath (/app/models/640m.onnx or /app/models/320n.onnx).
 
 # Status page front end (the embedded web UI at http://<host>:2382)

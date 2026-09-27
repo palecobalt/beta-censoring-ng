@@ -1,0 +1,14 @@
+beta-censoring-ng
+
+This repository contains modified versions of censor-core and beta-censoring by
+silveredgold, originally published at https://github.com/silveredgold/censor-core
+and https://github.com/silveredgold/beta-censoring under the GNU General Public
+License version 3.
+
+The original histories end at censor-core 2b853cc (2023-08-28) and
+beta-censoring 72a834b (2023-09-07). Every commit from "Combine upstream
+censor-core and beta-censoring histories" (2026) onwards is a modification made
+for beta-censoring-ng; README.md summarises the changes, and the commit history
+records each one with its date.
+
+The modified work is distributed under the same licence, GPL-3.0.
