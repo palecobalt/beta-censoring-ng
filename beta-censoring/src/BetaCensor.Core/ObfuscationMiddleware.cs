@@ -43,11 +43,11 @@ namespace BetaCensor.Core {
                     // Console.WriteLine("draw: " + timer.Elapsed.TotalSeconds);
                     
                     var ctr = new System.Numerics.Vector2(fi.Width / 2, fi.Height / 2);
-                    IBrush brush = Brushes.Solid(Color.White.WithAlpha(0.25F));
+                    Brush brush = Brushes.Solid(Color.White.WithAlpha(0.25F));
                     var rand = new Random().Next(-100, 100) / 100.0F;
                     var lineThick = Math.Abs(rand) * 10F;
-                    x.DrawLines(brush, lineThick, new PointF(0, 0), new PointF(fi.Width, fi.Height));
-                    x.DrawLines(brush, lineThick, new PointF(fi.Width, 0), new PointF(0, fi.Height));
+                    x.DrawLine(brush, lineThick, new PointF(0, 0), new PointF(fi.Width, fi.Height));
+                    x.DrawLine(brush, lineThick, new PointF(fi.Width, 0), new PointF(0, fi.Height));
                 });
                 _logger.LogInformation($"Obfuscation enabled! Image obfuscated in {timer.Elapsed.TotalSeconds}s.");
             }

@@ -77,11 +77,11 @@ public static class ServerConfigurationExtensions {
 
     public static IServiceCollection AddOpenApi(this IServiceCollection services) {
         return services.AddSwaggerGen(opts => {
-            opts.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
+            opts.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo {
                 Version = "v1",
                 Title = "Beta Censoring REST API",
                 Description = "The REST API for the reference Beta Censoring Server",
-                License = new Microsoft.OpenApi.Models.OpenApiLicense {
+                License = new Microsoft.OpenApi.OpenApiLicense {
                     Name = "GPL-3.0-or-later",
                     Url = new Uri("https://github.com/silveredgold/beta-censoring/blob/main/LICENSE")
                 }

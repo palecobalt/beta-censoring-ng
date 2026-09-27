@@ -29,6 +29,10 @@ Both upstream repositories are included with their full history, in `censor-core
 - **Model auto-download** falls back to `320n.onnx` from the newest NudeNet release (it used to
   find nothing and abort with "Failed to retrieve AI model!").
 - The server builds against the local censor-core source instead of the NuGet packages.
+- **.NET 10** (from .NET 6, which is out of support) with current dependencies: ImageSharp 3.1 and
+  ImageSharp.Drawing 2.1 (fixes seven published ImageSharp vulnerabilities), LiteDB 5.0.21, MediatR 12.5,
+  Swashbuckle 10. Sticker packs (`*.betapkg`, `*-stickers.zip`) are read with .NET's own zip support instead
+  of Lexical.FileProvider/SharpCompress.
 
 ## Test results
 
@@ -241,7 +245,7 @@ plus ffmpeg for the pipeline tests), or inside the image with
 
 ## Run without Docker
 
-Needs the .NET 6 SDK.
+Needs the .NET 10 SDK.
 
 ```bash
 dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -o out
@@ -254,7 +258,6 @@ the Docker build does this. The censoring API works either way.
 
 ## Notes
 
-- Everything still targets .NET 6, which is out of support.
 - The v3 thresholds were picked from a small non-explicit sample; tune `MatchOptions` if it
   censors too much or too little.
 - GPU acceleration: CUDA on Linux with the GPU build (see above); DirectML on Windows is untested.
@@ -266,6 +269,8 @@ the Docker build does this. The censoring API works either way.
   Their commit histories are included unchanged apart from the move into subdirectories.
 - [NudeNet](https://github.com/notAI-tech/NudeNet) by notAI-tech (AGPL-3.0) provides the detection
   models, which are downloaded separately.
+- [ImageSharp](https://github.com/SixLabors/ImageSharp) and ImageSharp.Drawing by Six Labors are used under
+  the Apache License 2.0, as granted by the Six Labors Split License for open source software.
 
 This project is licensed under the GNU General Public License v3.0, like the originals (see
 `censor-core/LICENSE` and `beta-censoring/LICENSE`). `NOTICE` describes what has been modified.

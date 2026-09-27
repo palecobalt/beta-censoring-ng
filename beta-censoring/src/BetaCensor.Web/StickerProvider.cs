@@ -97,7 +97,7 @@ public class StickerProvider : IStickerProvider {
             var images = GetImageData(new List<string> {cat});
             dict.Add(cat, images.Select(i =>
             {
-                var ident = SixLabors.ImageSharp.Image.Identify(i.RawData, out var format);
+                var format = SixLabors.ImageSharp.Image.Identify(i.RawData).Metadata.DecodedImageFormat!;
                 return new RawImageData(i.RawData, format.DefaultMimeType);
             }));
         }

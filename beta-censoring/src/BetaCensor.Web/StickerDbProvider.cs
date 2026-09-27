@@ -135,7 +135,8 @@ public class StickerDbProvider : IStickerProvider {
                         var dbCatFile = _db.FileStorage.Upload($"$/{category.Key}/{image.Name}-{image.LastModified.Millisecond}", image.Name, read);
                     }
                     else {
-                        var img = SixLabors.ImageSharp.Image.Identify(read, out var format);
+                        var img = SixLabors.ImageSharp.Image.Identify(read);
+                        var format = img.Metadata.DecodedImageFormat!;
                         decimal srcRatio = img.Width / img.Height;
                         var meta = new BsonDocument();
                         meta["aspectRatio"] = srcRatio;

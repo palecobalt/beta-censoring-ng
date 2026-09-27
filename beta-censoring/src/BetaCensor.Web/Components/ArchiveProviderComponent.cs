@@ -1,6 +1,5 @@
 using BetaCensor.Core;
 using BetaCensor.Web.Providers;
-using Lexical.FileProvider;
 using Microsoft.Extensions.FileProviders;
 
 namespace BetaCensor.Web.Components;
@@ -20,7 +19,7 @@ public class ArchiveProviderComponent : IStoreComponent {
             localPackages = localPackages.Concat(storePackages);
         }
         if (localPackages.Any()) {
-            var providers = localPackages.Select(lp => new _ZipFileProvider(lp, convertBackslashesToSlashes: true)).ToArray();
+            var providers = localPackages.Select(lp => new ZipArchiveFileProvider(lp)).ToArray();
             return new NestedFilesProvider(new CompositeFileProvider(providers), (s, dir) => string.Join('/', new[] {s, dir.Name}));
         }
         return null;
@@ -28,7 +27,7 @@ public class ArchiveProviderComponent : IStoreComponent {
 
     public bool TryProvidePath(string path, bool allowNesting, out IFileProvider? provider) {
         if (PathMatches(path) && File.Exists(path)) {
-            var zipProvider = new _ZipFileProvider(path, convertBackslashesToSlashes: true);
+            var zipProvider = new ZipArchiveFileProvider(path);
             provider = allowNesting ? new NestedFilesProvider(zipProvider) : zipProvider;
             return true;
         }

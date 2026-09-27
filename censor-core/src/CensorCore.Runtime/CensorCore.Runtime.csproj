@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
@@ -14,12 +14,8 @@
     <PackageDescription>Highly experimental library to enable hardware-accelerated ONNX sessions with CensorCore.</PackageDescription>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.10.0" /> -->
-    <PackageReference Condition="'$(RuntimeIdentifier)' == 'win-x64'" Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.12.1" />
-    <PackageReference Condition="'$(RuntimeIdentifier)' == 'linux-x64'" Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.12.1" />
-    <PackageReference Condition="'$(RuntimeIdentifier)' != 'win-x64' And '$(RuntimeIdentifier)' != 'linux-x64'" Include="Microsoft.ML.OnnxRuntime" Version="1.12.1" />
-    
-  </ItemGroup>
+  <!-- Uses the ONNX Runtime package that CensorCore references (CPU). The old per-RID DirectML/CUDA 1.12.1
+       references were removed: they downgraded ONNX Runtime below what the v3 models need. CreateService falls
+       back to the CPU when an execution provider is not available. -->
 
 </Project>

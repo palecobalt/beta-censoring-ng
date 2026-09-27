@@ -11,14 +11,14 @@ COPY beta-censoring/src/BetaCensor.Web.Status/ClientApp/ ./
 # vite outputs to ../wwwroot/dist
 RUN npm run build
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY censor-core/ censor-core/
 COPY beta-censoring/ beta-censoring/
 COPY --from=status-ui /src/wwwroot/dist beta-censoring/src/BetaCensor.Web.Status/wwwroot/dist
 RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -p:OnnxRuntimeGpu=true -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS dotnet-runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS dotnet-runtime
 
 # ONNX Runtime 1.26 is built against CUDA 12 and cuDNN 9
 FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04

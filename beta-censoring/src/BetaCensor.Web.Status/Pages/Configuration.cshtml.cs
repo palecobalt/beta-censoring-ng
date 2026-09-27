@@ -54,8 +54,7 @@ namespace BetaCensor.Web.Status.Pages {
         }
 
         private string GetMimeType(byte[] data) {
-            var ident = SixLabors.ImageSharp.Image.Identify(data, out var format);
-            return format.DefaultMimeType;
+            return SixLabors.ImageSharp.Image.Identify(data).Metadata.DecodedImageFormat!.DefaultMimeType;
         }
 
         

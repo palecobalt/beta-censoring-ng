@@ -13,14 +13,14 @@ COPY beta-censoring/src/BetaCensor.Web.Status/ClientApp/ ./
 # vite outputs to ../wwwroot/dist
 RUN npm run build
 
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY censor-core/ censor-core/
 COPY beta-censoring/ beta-censoring/
 COPY --from=status-ui /src/wwwroot/dist beta-censoring/src/BetaCensor.Web.Status/wwwroot/dist
 RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
 COPY models/320n.onnx models/640m.onnx ./models/

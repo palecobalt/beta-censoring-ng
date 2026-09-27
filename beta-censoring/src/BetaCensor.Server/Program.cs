@@ -69,12 +69,12 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddStatusPages<ServerInfoService>(builder.Environment);
 
-builder.Services.AddMediatR(
-    typeof(Program), 
-    typeof(AIService), 
-    typeof(BetaCensor.Core.Messaging.CensorImageRequest), 
-    typeof(BetaCensor.Web.Controllers.InfoController)
-);
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(
+    typeof(Program).Assembly,
+    typeof(AIService).Assembly,
+    typeof(BetaCensor.Core.Messaging.CensorImageRequest).Assembly,
+    typeof(BetaCensor.Web.Controllers.InfoController).Assembly
+));
 
 builder.Services.AddPerformanceData();
 

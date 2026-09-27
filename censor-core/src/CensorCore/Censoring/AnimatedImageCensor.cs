@@ -29,7 +29,7 @@ public class AnimatedImageCensor {
         if (_options.CensorAnimatedGifs == false || !IsGif(data)) {
             return null;
         }
-        using var gif = Image.Load<Rgba32>(data, new GifDecoder());
+        using var gif = Image.Load<Rgba32>(data);
         var frameCount = gif.Frames.Count;
         if (frameCount < 2 || frameCount > (_options.AnimationMaxFrames ?? 500)) {
             return null;

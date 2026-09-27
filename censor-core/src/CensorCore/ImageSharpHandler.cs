@@ -138,7 +138,8 @@ namespace CensorCore
         }
 
         public Task<ImageData> LoadImageData(byte[] contents) {
-            var img = Image.Load<Rgba32>(contents, out var format);
+            var img = Image.Load<Rgba32>(contents);
+            var format = img.Metadata.DecodedImageFormat!;
             var frameCount = img.Frames.Count;
             for (int i = 1; i < frameCount; i++)
             {
