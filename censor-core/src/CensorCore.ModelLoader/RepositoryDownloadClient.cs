@@ -24,21 +24,33 @@ namespace CensorCore.ModelLoader
                         throw new Exception("Could not locate detector asset in GitHub Releases!");
                     }
                     var baseAsset = await github.Repository.Release.GetAsset(this._owner, this._repo, classifierRelease.Id);
-                    var download = await github.Connection.Get<byte[]>(new Uri(baseAsset.Url), new Dictionary<string, string>(), "application/octet-stream");
-                    return (baseAsset.Name, download.Body);
+                    var download = await DownloadAsset(baseAsset.Url);
+                    return (baseAsset.Name, download);
                 } else {
                     // NudeNet v3 releases only ship YOLOv8 weights (320n/640m) with no "detector" assets
                     var baseRelease = checkpointRelease.Assets.FirstOrDefault(r => r.IsDetector(preferBase))
                         ?? checkpointRelease.Assets.FirstOrDefault(r => r.Name == "320n.onnx");
                     if (baseRelease != null) {
                         var baseAsset = await github.Repository.Release.GetAsset(this._owner, this._repo, baseRelease.Id);
-                        var download = await github.Connection.Get<byte[]>(new Uri(baseAsset.Url), new Dictionary<string, string>(), "application/octet-stream");
-                        return (baseAsset.Name, download.Body);
+                        var download = await DownloadAsset(baseAsset.Url);
+                        return (baseAsset.Name, download);
                     }
                 }
                 return null;
             }
             return null;
+        }
+
+        // Octokit 14 returns no body for binary asset downloads (Get<byte[]> gives null, GetRaw throws), so the
+        // asset is fetched directly; GitHub redirects the API URL to its release storage.
+        private static async Task<byte[]> DownloadAsset(string assetApiUrl) {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("CensorCore.ModelLoader");
+            using var request = new HttpRequestMessage(HttpMethod.Get, assetApiUrl);
+            request.Headers.Accept.ParseAdd("application/octet-stream");
+            using var response = await http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
         }
     }
 
