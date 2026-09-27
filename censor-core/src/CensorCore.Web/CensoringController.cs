@@ -1,6 +1,7 @@
 ﻿using CensorCore.Censoring;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 
 namespace CensorCore.Web;
@@ -63,6 +64,59 @@ public class CensoringController : ControllerBase
             return BadRequest();
         }
     }
+
+    /// <summary>
+    /// Runs the model on an image and returns the matches (label, confidence and box) without censoring it.
+    /// </summary>
+    [HttpPost("detect")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<DetectionResult>> Detect([FromBody]DetectImageRequestBody requestBody) {
+        var imageUrl = requestBody.ImageDataUrl ?? requestBody.ImageUrl;
+        if (string.IsNullOrWhiteSpace(imageUrl)) {
+            return BadRequest();
+        }
+        try {
+            var imageData = await ImageSharpHandler.LoadBytes(imageUrl);
+            var result = await GetDetector().Detect(imageData, GetMatchOptions(), GetParser(requestBody.CensorOptions), requestBody.Transform);
+            return result == null ? UnprocessableEntity() : Ok(result);
+        } catch (SixLabors.ImageSharp.ImageFormatException) {
+            return UnprocessableEntity();
+        }
+    }
+
+    /// <summary>
+    /// Runs the model on several images (such as video frames) and returns the matches for each, in the same order.
+    /// </summary>
+    [HttpPost("detectBatch")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<DetectionResult[]>> DetectBatch([FromBody]DetectImagesRequestBody requestBody) {
+        if (!requestBody.ImageDataUrls.Any() || requestBody.ImageDataUrls.Any(string.IsNullOrWhiteSpace)) {
+            return BadRequest();
+        }
+        try {
+            var images = new List<byte[]>();
+            foreach (var imageUrl in requestBody.ImageDataUrls) {
+                images.Add(await ImageSharpHandler.LoadBytes(imageUrl));
+            }
+            var results = await GetDetector().DetectMany(images, GetMatchOptions(), GetParser(requestBody.CensorOptions), requestBody.Transform);
+            return results.Any(r => r == null) ? UnprocessableEntity() : Ok(results);
+        } catch (SixLabors.ImageSharp.ImageFormatException) {
+            return UnprocessableEntity();
+        }
+    }
+
+    // use the host's configured match options, censor options and result transformers (if it registers any)
+    private MatchDetector GetDetector() =>
+        new(_ai, HttpContext.RequestServices.GetService<GlobalCensorOptions>(), HttpContext.RequestServices.GetServices<IResultsTransformer>());
+
+    private MatchOptions? GetMatchOptions() => HttpContext.RequestServices.GetService<MatchOptions>();
+
+    private static IResultParser? GetParser(Dictionary<string, ImageCensorOptions>? censorOptions) =>
+        censorOptions != null && censorOptions.Any() ? new StaticResultsParser(censorOptions) : null;
 
     [HttpGet("getCensored")]
     [ProducesResponseType(StatusCodes.Status200OK)]

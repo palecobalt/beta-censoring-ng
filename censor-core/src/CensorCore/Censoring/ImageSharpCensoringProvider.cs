@@ -35,19 +35,11 @@ namespace CensorCore.Censoring
             var img = image.ImageData.SourceImage.Clone();
             var censorEffects = new Dictionary<int, List<Action<IImageProcessingContext>>>();
             // var matches = image.Results.GroupBy(r => r.Label).ToList();
-            IEnumerable<Classification> transformedMatches = image.Results;
-
             foreach (var middleware in _middlewares)
             {
                 await middleware.Prepare();
             }
-            if (_transformers.Any() && (_options.AllowTransformers ?? true))
-            {
-                foreach (var transformer in _transformers)
-                {
-                    transformedMatches = transformer.TransformResults(transformedMatches, parser);
-                }
-            }
+            var transformedMatches = _transformers.ApplyTransformers(image.Results, parser, _options);
             if (_middlewares.Any()) {
                 foreach (var middleware in _middlewares)
                 {

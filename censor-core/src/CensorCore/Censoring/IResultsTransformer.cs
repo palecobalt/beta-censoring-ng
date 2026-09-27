@@ -6,6 +6,24 @@ public interface IResultsTransformer {
     IEnumerable<Classification> TransformResults(IEnumerable<Classification> matches, IResultParser? parser);
 }
 
+public static class ResultsTransformerExtensions {
+    /// <summary>
+    /// Applies each transformer to the matches in turn, unless <see cref="GlobalCensorOptions.AllowTransformers"/> is disabled.
+    /// </summary>
+    /// <remarks>
+    /// Transformers can change match boxes in place.
+    /// </remarks>
+    public static IEnumerable<Classification> ApplyTransformers(this IEnumerable<IResultsTransformer> transformers, IEnumerable<Classification> matches, IResultParser? parser, GlobalCensorOptions? options = null) {
+        if (options?.AllowTransformers == false) {
+            return matches;
+        }
+        foreach (var transformer in transformers) {
+            matches = transformer.TransformResults(matches, parser);
+        }
+        return matches;
+    }
+}
+
 public class CensorScaleTransformer : IResultsTransformer {
     private readonly float _scaleFactor;
 

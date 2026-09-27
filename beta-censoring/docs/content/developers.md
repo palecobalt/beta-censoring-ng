@@ -37,6 +37,8 @@ The SignalR API is available at `/live` and exposes a handful of endpoints for t
 
 The REST API is provided directly by the underlying [CensorCore](https://github.com/silveredgold/censor-core) framework, and is available at `/censoring`. The endpoints of interest are the `GET /getCensored` endpoint for zero-configuration quick censoring, and the `POST /censorImage` endpoint that supports custom censoring options.
 
+If you want to apply censoring yourself (for example to video frames), `POST /detect` returns the matches for an image (label, confidence and box, plus the image's width and height) without censoring it, and `POST /detectBatch` does the same for a list of images (`imageDataUrls`). By default the boxes are scaled and merged the same way `/censorImage` would censor them; set `transform` to `false` for the model's raw matches.
+
 Note that both options will block and only respond once censoring is complete! If you're after an asynchronous alternative, SignalR is your best bet.
 
 ### Socket
