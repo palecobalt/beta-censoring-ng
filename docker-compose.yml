@@ -42,5 +42,19 @@ services:
     logging: *logging
     restart: unless-stopped
 
+  # re-encodes short video clips with censoring drawn on (see README)
+  video-censor:
+    build: ./video
+    image: video-censor
+    container_name: video-censor
+    ports:
+      - "${VIDEO_CENSOR_PORT:-2383}:2383"
+    environment:
+      CENSOR_URL: http://beta-censoring:2382
+    depends_on:
+      - beta-censoring
+    logging: *logging
+    restart: unless-stopped
+
 volumes:
   mitmproxy-ca:

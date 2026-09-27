@@ -148,6 +148,48 @@ of each other.
   8080 on your LAN, and consider not routing banking or similar sites through it (for example with
   a proxy-switching extension, or mitmproxy's `ignore_hosts` option).
 
+## Video clip censoring (in progress)
+
+`docker compose` also starts `video-censor` on port 2383, which censors short video clips. The
+proxy doesn't send videos to it yet.
+
+`POST /censor` with the clip as the request body (MP4, WebM, Ogg, or anything else ffmpeg reads)
+and the censor options as JSON in an `X-Censor-Options` header returns the clip as H.264 MP4 with
+the censoring drawn on. Clips with nothing to censor come back unchanged; `X-Censored` says which,
+and `X-Video-Censor-Stats` has timings. Errors: 413 over the limits, 422 not a readable video,
+502 Beta Censoring unreachable.
+
+How it works:
+
+- The model runs on 5 frames per second, scaled to 640 px, through Beta Censoring's
+  `/censoring/detectBatch`, with the same box scaling and merging as images.
+- Every frame is censored with the boxes from the samples on either side of it, enlarged by 5%
+  to cover movement, so a single missed detection doesn't uncover anything.
+- Blur, pixelation and black bars match the strength of the image effects at each level; stickers
+  and captions are drawn as blur. Unlike on images, blur and pixelation cover the whole box and
+  fade out just outside it.
+- Frames are re-encoded with NVENC on NVIDIA GPUs (x264 otherwise), keeping the audio and putting
+  the MP4 index first so playback can start straight away.
+- One clip is processed at a time.
+
+Settings (environment variables on `video-censor`):
+
+- `VIDEO_MAX_MB` (25), `VIDEO_MAX_SECONDS` (20): larger or longer clips are refused with 413.
+- `VIDEO_MAX_SHORT_SIDE` (1080), `VIDEO_MAX_FPS` (30): bigger or faster videos are scaled down.
+- `VIDEO_SAMPLE_FPS` (5), `VIDEO_SAMPLE_SIZE` (640): how often, and at what size, frames go
+  through the model.
+- `VIDEO_HOLD_SAMPLES` (1), `VIDEO_MOTION_PADDING` (0.05): how many sample intervals matches carry
+  over, and how much boxes grow on each side.
+- `VIDEO_ENCODER` (`auto`): `nvenc` or `x264` to force one.
+- `VIDEO_DETECT_BATCH` (16), `VIDEO_DETECT_CONCURRENCY` (2), `VIDEO_DETECT_TIMEOUT` (120): frames
+  per detection request, requests at once, and seconds per request.
+- `CENSOR_OPTIONS_FILE`: censor options for requests without the header.
+- `VIDEO_CENSOR_PORT` (in `.env`): the host port (default 2383).
+
+Tests: `cd video && python3 -m unittest discover -s tests` (needs numpy and opencv-python-headless,
+plus ffmpeg for the pipeline tests), or inside the image with
+`docker run --rm --entrypoint python3 video-censor -m unittest discover -s tests`.
+
 ## Run without Docker
 
 Needs the .NET 6 SDK.

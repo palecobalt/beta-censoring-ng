@@ -19,3 +19,13 @@ services:
               # GPU index or UUID from `nvidia-smi -L`; set GPU_DEVICE_ID in .env on multi-GPU hosts
               device_ids: ["${GPU_DEVICE_ID:-0}"]
               capabilities: [gpu]
+
+  # NVENC encoding on the same GPU
+  video-censor:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_DEVICE_ID:-0}"]
+              capabilities: [gpu, compute, utility, video]
