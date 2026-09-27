@@ -18,6 +18,10 @@ unchanged.
 - **Lower default thresholds for v3.** v3 scores run lower than v2's: `MinimumScore` 0.35,
   exposed female/male-specific classes 0.30, covered female-specific classes 0.45.
 - **`ModelPath` setting** (`BCS_ModelPath` env var, `--ModelPath`, or `ModelPath:` in `config.yml`).
+- **Detection-only REST endpoints.** `POST /censoring/detect` (`{imageDataUrl, censorOptions}`)
+  and `POST /censoring/detectBatch` (`{imageDataUrls: [...], censorOptions}`) return
+  `{width, height, results: [{label, confidence, box}]}` without censoring. Boxes get the same
+  scaling and merging as `censorImage` unless `transform: false` is sent.
 - **Model auto-download** falls back to `320n.onnx` from the newest NudeNet release (it used to
   find nothing and abort with "Failed to retrieve AI model!").
 - The server builds against the local censor-core source instead of the NuGet packages.
