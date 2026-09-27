@@ -1,0 +1,60 @@
+name: Release
+
+# Pushing a tag like v0.1.0 builds self-contained server zips and attaches them
+# to a draft release, which is published by hand after testing.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # ONNX Runtime 1.26 ships no native library for osx-x64 (Intel Macs)
+        rid: [win-x64, linux-x64, osx-arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16
+      - name: Build the status page
+        working-directory: beta-censoring/src/BetaCensor.Web.Status/ClientApp
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+      - name: Publish
+        run: |
+          out=out/betacensor-server-${{ matrix.rid }}
+          dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release \
+            -r ${{ matrix.rid }} --self-contained -p:Version=${GITHUB_REF_NAME#v} -o "$out"
+          cp README.md NOTICE "$out"/
+          cp beta-censoring/LICENSE "$out"/LICENSE
+          (cd "$out" && zip -qr ../betacensor-server-${{ matrix.rid }}.zip .)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: betacensor-server-${{ matrix.rid }}
+          path: out/betacensor-server-${{ matrix.rid }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum *.zip > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "$GITHUB_REF_NAME" --notes "Draft: release notes to follow." *.zip SHA256SUMS

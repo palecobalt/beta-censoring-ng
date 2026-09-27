@@ -55,6 +55,26 @@ model itself at startup when `ModelPath` doesn't exist (it takes `320n.onnx` fro
 NudeNet release). NudeNet and its models are published by
 [notAI-tech](https://github.com/notAI-tech/NudeNet) under the AGPL-3.0.
 
+## Run from a release download
+
+The [releases page](https://github.com/palecobalt/beta-censoring-ng/releases) has self-contained
+builds for Windows (x64), Linux (x64) and macOS (Apple Silicon); no .NET installation is needed.
+
+1. Download the zip for your system and unpack it.
+2. Start `BetaCensor.Server.exe` (Windows) or `./BetaCensor.Server` (Linux, macOS).
+3. In Beta Protection's settings set **Backend Host** to `http://localhost:2382`, select
+   **Beta Censoring**, and click **Save and Reconnect**.
+
+On the first image the server downloads `320n.onnx` from NudeNet's releases and keeps it in the
+system temp folder (`.nudenet`). To use the larger, more accurate `640m` model, download it (for
+example with `scripts/fetch-models.sh`) and set `ModelPath: <path to 640m.onnx>` in a `config.yml`
+in the unpacked folder (the server reads it from the folder it is started in), or set the
+`BCS_ModelPath` environment variable.
+
+On macOS the downloaded files are quarantined; clear that with
+`xattr -dr com.apple.quarantine <unpacked folder>`. Intel Macs aren't covered, because ONNX Runtime
+no longer publishes macOS x64 builds; use Docker there.
+
 ## Run with Docker
 
 ```bash

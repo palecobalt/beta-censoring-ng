@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+      - name: Build the server
+        run: dotnet build -c Release beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj
+      - name: Test censor-core
+        run: dotnet test censor-core/src/CensorCore.Tests/CensorCore.Tests.csproj
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffmpeg and dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+          pip install -r video/requirements.txt pytest
+      - name: Test the proxy
+        working-directory: proxy
+        run: python -m pytest -q
+      - name: Test the video service
+        working-directory: video
+        run: python -m unittest discover -s tests
