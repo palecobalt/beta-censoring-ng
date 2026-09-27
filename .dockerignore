@@ -1,0 +1,6 @@
+**/bin/
+**/obj/
+**/node_modules/
+models/detector_v2_default_checkpoint.onnx
+models/assets.txt
+*.patch

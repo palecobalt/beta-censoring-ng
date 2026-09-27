@@ -38,20 +38,27 @@ public class CensoringController : ControllerBase
     public async Task<ActionResult<CensoredImage>> CensorImage([FromBody]CensorImageRequestBody requestBody, [FromQuery] bool returnEncoded = false) {
         var imageUrl = requestBody.ImageDataUrl ?? requestBody.ImageUrl;
         if (!string.IsNullOrWhiteSpace(imageUrl)) {
-            var result = await this._ai.RunModel(imageUrl);
+            // use the host's configured match options (if it registers any) instead of the built-in defaults
+            var matchOptions = HttpContext.RequestServices.GetService(typeof(MatchOptions)) as MatchOptions;
             IResultParser? parser = null;
-            if (result != null) {
-                if (requestBody.CensorOptions != null && requestBody.CensorOptions.Any()) {
-                    parser = new StaticResultsParser(requestBody.CensorOptions);
-                }
-                var censored = await this._censor.CensorImage(result, parser);
-                if (returnEncoded) {
-                    return Ok(new { imageUrl = censored.ImageDataUrl, imageType = censored.MimeType});
-                }
-                return File(censored.ImageContents, censored.MimeType);
-            } else {
-                return UnprocessableEntity();
+            if (requestBody.CensorOptions != null && requestBody.CensorOptions.Any()) {
+                parser = new StaticResultsParser(requestBody.CensorOptions);
             }
+            var imageData = await ImageSharpHandler.LoadBytes(imageUrl);
+            // animated GIFs are censored frame by frame when the host registers support for them
+            var animated = HttpContext.RequestServices.GetService(typeof(AnimatedImageCensor)) as AnimatedImageCensor;
+            var censored = animated == null ? null : await animated.CensorAnimatedGif(imageData, matchOptions, parser);
+            if (censored == null) {
+                var result = await this._ai.RunModel(imageData, matchOptions);
+                if (result == null) {
+                    return UnprocessableEntity();
+                }
+                censored = await this._censor.CensorImage(result, parser);
+            }
+            if (returnEncoded) {
+                return Ok(new { imageUrl = censored.ImageDataUrl, imageType = censored.MimeType});
+            }
+            return File(censored.ImageContents, censored.MimeType);
         } else {
             return BadRequest();
         }

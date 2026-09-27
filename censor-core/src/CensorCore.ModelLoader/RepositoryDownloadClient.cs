@@ -27,7 +27,9 @@ namespace CensorCore.ModelLoader
                     var download = await github.Connection.Get<byte[]>(new Uri(baseAsset.Url), new Dictionary<string, string>(), "application/octet-stream");
                     return (baseAsset.Name, download.Body);
                 } else {
-                    var baseRelease = checkpointRelease.Assets.FirstOrDefault(r => r.IsDetector(preferBase));
+                    // NudeNet v3 releases only ship YOLOv8 weights (320n/640m) with no "detector" assets
+                    var baseRelease = checkpointRelease.Assets.FirstOrDefault(r => r.IsDetector(preferBase))
+                        ?? checkpointRelease.Assets.FirstOrDefault(r => r.Name == "320n.onnx");
                     if (baseRelease != null) {
                         var baseAsset = await github.Repository.Release.GetAsset(this._owner, this._repo, baseRelease.Id);
                         var download = await github.Connection.Get<byte[]>(new Uri(baseAsset.Url), new Dictionary<string, string>(), "application/octet-stream");

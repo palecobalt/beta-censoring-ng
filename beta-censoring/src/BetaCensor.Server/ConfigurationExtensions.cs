@@ -11,7 +11,7 @@ public static class ServerConfigurationExtensions {
         var logger = provider.GetRequiredService<ILogger<MatchOptions>>();
         logger.LogTrace("Getting match options from configuration!");
         var section = config.GetSection("MatchOptions");
-        var defaults = MatchOptions.GetDefault();
+        var defaults = MatchOptions.GetDefault(provider.GetRequiredService<AIService>().ModelVersion);
         if (section.Exists() && section.Get<MatchOptions>() is var matchOpts && matchOpts is not null) {
             logger.LogDebug("Valid configuration section found, parsing for match options!");
             defaults.MinimumScore = matchOpts.MinimumScore == default(float) ? defaults.MinimumScore : matchOpts.MinimumScore;
@@ -33,6 +33,11 @@ public static class ServerConfigurationExtensions {
             defaults.ClassStrength = matchOpts.ClassStrength ?? new Dictionary<string, float>();
             defaults.ForcePixelBackground = matchOpts.ForcePixelBackground ?? false;
             defaults.LayerModifier = (matchOpts.LayerModifier != null && matchOpts.LayerModifier.Any()) ? matchOpts.LayerModifier : new Dictionary<string, int> {["EYES_F"] = 10, ["MOUTH_F"] = 10};
+            defaults.MergeOverlapping = matchOpts.MergeOverlapping ?? false;
+            defaults.MergeDistance = matchOpts.MergeDistance ?? 0F;
+            defaults.CensorAnimatedGifs = matchOpts.CensorAnimatedGifs ?? true;
+            defaults.AnimationDetectionIntervalMs = matchOpts.AnimationDetectionIntervalMs ?? 200;
+            defaults.AnimationMaxFrames = matchOpts.AnimationMaxFrames ?? 500;
         }
         return defaults;
     }

@@ -1,0 +1,10 @@
+{
+  "EXPOSED_BREAST_F": { "censorType": "pixelate", "level": 12 },
+  "EXPOSED_GENITALIA_F": { "censorType": "blackbars", "level": 10 },
+  "EXPOSED_GENITALIA_M": { "censorType": "blackbars", "level": 10 },
+  "EXPOSED_BUTTOCKS": { "censorType": "pixelate", "level": 12 },
+  "EXPOSED_ANUS": { "censorType": "blackbars", "level": 10 },
+  "COVERED_BREAST_F": { "censorType": "blur", "level": 10 },
+  "COVERED_GENITALIA_F": { "censorType": "blur", "level": 10 },
+  "COVERED_BUTTOCKS": { "censorType": "blur", "level": 10 }
+}

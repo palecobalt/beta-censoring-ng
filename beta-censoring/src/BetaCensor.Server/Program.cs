@@ -42,13 +42,18 @@ var loader = new ModelLoaderBuilder()
         .AddDefaultPaths()
         .SearchAssembly(System.Reflection.Assembly.GetEntryAssembly())
         .Build();
-var model = await loader.GetModel();
+// ModelPath can point at a specific .onnx file or a folder (e.g. BCS_ModelPath=/models/640m.onnx)
+var modelPath = builder.Configuration["ModelPath"];
+if (!string.IsNullOrWhiteSpace(modelPath) && !File.Exists(modelPath) && !Directory.Exists(modelPath)) {
+    Console.WriteLine($"WARN: ModelPath '{modelPath}' does not exist, searching default locations instead");
+}
+var model = await loader.GetModel(modelPath);
 if (model == null) throw new InvalidDataException("Failed to retrieve AI model! Aborting...");
-builder.Services.AddCensoring(model);
-builder.Services.AddSingleton<CensorCore.Censoring.ICensoringMiddleware, BetaCensor.Core.ObfuscationMiddleware>();
-
 var serverOpts = builder.Configuration.GetServerOptions();
 serverOpts ??= new ServerOptions();
+
+builder.Services.AddCensoring(model, serverOpts.UseGpu, serverOpts.GpuDeviceId, serverOpts.GpuMemoryLimitMB * 1024L * 1024L, serverOpts.GpuMaxConcurrentRuns);
+builder.Services.AddSingleton<CensorCore.Censoring.ICensoringMiddleware, BetaCensor.Core.ObfuscationMiddleware>();
 
 builder.Services.AddSingleton<IImageHandler>(ServerConfigurationExtensions.BuildImageHandler(serverOpts));
 

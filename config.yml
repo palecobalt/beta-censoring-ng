@@ -1,0 +1,6 @@
+# Server config, mounted at /app/config.yml (see config.example.yml for more options).
+# Environment variables in docker-compose.yml (BCS_ prefix) override these values.
+
+CensorOptions:
+  # enlarge every censored area by 30% in each direction
+  RelativeCensorScale: 1.3

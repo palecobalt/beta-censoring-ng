@@ -13,7 +13,10 @@
 
   <ItemGroup>
     <PackageReference Include="Flurl" Version="3.0.6" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.12.1" />
+    <!-- 1.26 is the newest release built for CUDA 12 (later ones need CUDA 13 drivers).
+         Build with -p:OnnxRuntimeGpu=true for CUDA support on Linux (CUDA 12 + cuDNN 9). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" Condition="'$(OnnxRuntimeGpu)' != 'true'" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu.Linux" Version="1.26.0" Condition="'$(OnnxRuntimeGpu)' == 'true'" />
     <!-- <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.10.0" /> -->
     <PackageReference Include="SixLabors.ImageSharp" Version="2.1.3" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta14" />

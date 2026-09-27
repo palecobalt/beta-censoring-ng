@@ -79,27 +79,46 @@ public class IntersectionTransformerTests {
         var classifications = new[] { 
             new Classification(new BoundingBox(5,5, 20, 15), 0.5F, "_FACE_F"),
             new Classification(new BoundingBox(10,10, 30, 25), 0.75F, "_FACE_F") ,
-            new Classification(new BoundingBox(5,15, 30, 25), 1F, "_FACE_F") 
+            new Classification(new BoundingBox(5,15, 30, 25), 1F, "_FACE_F")
         };
         var transformed = merger.TransformResults(classifications, null).ToList();
 
-        Assert.Single(transformed);
-        Assert.Equal(25, transformed[0].Box.Width);
-        Assert.Equal(1, transformed[0].Confidence);
+        // the 0.5 match is below 75% of the best match, so it stays separate
+        Assert.Equal(2, transformed.Count);
+        var merged = transformed.Single(t => t.Confidence == 1F);
+        Assert.Equal(25, merged.Box.Width);
+        Assert.Contains(transformed, t => t.Confidence == 0.5F);
     }
 
     [Fact]
-    public void IgnoresLowConfidenceExtras() {
+    public void KeepsLowConfidenceExtrasSeparately() {
         var merger = new IntersectingMatchMerger();
         var classifications = new[] { 
             new Classification(new BoundingBox(5,5, 20, 15), 0.85F, "_FACE_F"),
             new Classification(new BoundingBox(10,10, 30, 25), 1F, "_FACE_F") ,
-            new Classification(new BoundingBox(10,10, 35, 35), 0.5F, "_FACE_F") 
+            new Classification(new BoundingBox(10,10, 35, 35), 0.5F, "_FACE_F")
         };
         var transformed = merger.TransformResults(classifications, null).ToList();
 
-        Assert.Single(transformed);
-        Assert.Equal(25, transformed[0].Box.Width);
-        Assert.Equal(1, transformed[0].Confidence);
+        Assert.Equal(2, transformed.Count);
+        var merged = transformed.Single(t => t.Confidence == 1F);
+        Assert.Equal(25, merged.Box.Width);
+        var extra = transformed.Single(t => t.Confidence == 0.5F);
+        Assert.Equal(25, extra.Box.Height);
+    }
+
+    [Fact]
+    public void MergedBoxIsNotRotated() {
+        var merger = new IntersectingMatchMerger();
+        var classifications = new[] {
+            new Classification(new BoundingBox(0, 0, 40, 20), 1, "_FACE_F"),
+            new Classification(new BoundingBox(30, 10, 70, 40), 1, "_FACE_F")
+        };
+        var merged = Assert.Single(merger.TransformResults(classifications, null));
+
+        // a rotated union box wouldn't cover the corners of the original matches
+        Assert.Null(merged.SourceAngle);
+        Assert.Equal(70, merged.Box.Width);
+        Assert.Equal(40, merged.Box.Height);
     }
 }

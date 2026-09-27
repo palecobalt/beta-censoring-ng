@@ -1,0 +1,37 @@
+# GPU (CUDA) build of the Beta Censoring server; see Dockerfile for the CPU build.
+# Needs an NVIDIA driver with CUDA 12 support and the NVIDIA container toolkit on the host.
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+
+# Status page front end (the embedded web UI at http://<host>:2382)
+FROM node:16 AS status-ui
+WORKDIR /src/ClientApp
+COPY beta-censoring/src/BetaCensor.Web.Status/ClientApp/package.json beta-censoring/src/BetaCensor.Web.Status/ClientApp/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY beta-censoring/src/BetaCensor.Web.Status/ClientApp/ ./
+# vite outputs to ../wwwroot/dist
+RUN npm run build
+
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+WORKDIR /src
+COPY censor-core/ censor-core/
+COPY beta-censoring/ beta-censoring/
+COPY --from=status-ui /src/wwwroot/dist beta-censoring/src/BetaCensor.Web.Status/wwwroot/dist
+RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -p:OnnxRuntimeGpu=true -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS dotnet-runtime
+
+# ONNX Runtime 1.26 is built against CUDA 12 and cuDNN 9
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04
+RUN apt-get update && apt-get install -y --no-install-recommends libicu70 && rm -rf /var/lib/apt/lists/*
+# The image's CUDA forward-compatibility libcuda only works on datacenter GPUs; on GeForce cards it
+# fails with "CUDA failure 804", so remove it and use the host driver's libcuda instead
+RUN rm -f /etc/ld.so.conf.d/00-compat-*.conf && rm -rf /usr/local/cuda-*/compat && ldconfig
+COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
+RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+WORKDIR /app
+COPY --from=build /app .
+COPY models/320n.onnx models/640m.onnx ./models/
+ENV BCS_ModelPath=/app/models/640m.onnx \
+    BCS_Server__UseGpu=true
+EXPOSE 2382
+ENTRYPOINT ["dotnet", "BetaCensor.Server.dll"]

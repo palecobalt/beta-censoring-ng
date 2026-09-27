@@ -1,0 +1,11 @@
+bin/
+obj/
+node_modules/
+__pycache__/
+
+# model weights (~260 MB) are downloaded from the NudeNet GitHub releases (v3.4-weights and v0);
+# use the API asset endpoint with "Accept: application/octet-stream" if direct downloads redirect to a login page
+models/
+
+# built status page front end
+beta-censoring/src/BetaCensor.Web.Status/wwwroot/dist/

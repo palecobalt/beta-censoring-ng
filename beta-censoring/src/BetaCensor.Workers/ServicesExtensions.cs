@@ -36,7 +36,7 @@ namespace BetaCensor.Workers {
             return services;
         }
 
-        public static IServiceCollection AddCensoring(this IServiceCollection services, byte[] model) {
+        public static IServiceCollection AddCensoring(this IServiceCollection services, byte[] model, bool enableGpu = false, int gpuDeviceId = 0, long? gpuMemoryLimit = null, int maxConcurrentGpuRuns = 0) {
 
             services.AddSingleton<IImageHandler>(p => new ImageSharpHandler());
             services.AddSingleton<AIService>(p =>
@@ -44,7 +44,7 @@ namespace BetaCensor.Workers {
                 if (model == null) {
                     throw new InvalidOperationException("Could not load model from any available source!");
                 }
-                return AIService.Create(model, p.GetRequiredService<IImageHandler>(), false);
+                return AIService.Create(model, p.GetRequiredService<IImageHandler>(), enableGpu, gpuDeviceId, gpuMemoryLimit, maxConcurrentGpuRuns);
             });
 
             services.AddSingleton<IAssetStore, EmptyAssetStore>();
@@ -55,7 +55,10 @@ namespace BetaCensor.Workers {
             services.AddSingleton<ICensorTypeProvider, StickerProvider>();
             services.AddSingleton<ICensorTypeProvider, CaptionProvider>();
             services.AddSingleton<ICensoringProvider, ImageSharpCensoringProvider>();
+            services.AddSingleton<AnimatedImageCensor>();
             services.AddSingleton<IResultsTransformer, CensorScaleTransformer>();
+            // before IntersectingMatchMerger, which drops lower-confidence overlapping matches instead of merging them
+            services.AddSingleton<IResultsTransformer, OverlapMerger>();
             services.AddSingleton<IResultsTransformer, IntersectingMatchMerger>();
             services.AddSingleton<ICensoringMiddleware, FacialFeaturesMiddleware>();
             return services;

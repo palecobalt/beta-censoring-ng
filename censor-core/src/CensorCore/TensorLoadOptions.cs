@@ -2,6 +2,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace CensorCore {
     public delegate void ActionRef<T>(Tensor<T> data, Point point, ref Rgba32 pixel);
@@ -14,7 +15,13 @@ namespace CensorCore {
         }
 
         public virtual ActionRef<T>? LoadPixel {get;protected set;}
-        
+
+        /// <summary>
+        /// Transforms the image before it is loaded into the tensor (e.g. resizing to a fixed model input size).
+        /// Returning a different instance than <paramref name="image"/> hands ownership of it to the caller.
+        /// </summary>
+        public virtual Image<Rgba32> PrepareImage(Image<Rgba32> image) => image;
+
         public virtual IEnumerable<NamedOnnxValue> GetFeeds(InferenceSession session, InputImage<float> input) {
             return session.InputMetadata.Select(im => NamedOnnxValue.CreateFromTensor<float>(im.Key, input.Tensor));
         }
@@ -31,6 +38,37 @@ namespace CensorCore {
             data[0, y, x, 0] = pixel.B - 103.939F;
             data[0, y, x, 1] = pixel.G - 116.779F;
             data[0, y, x, 2] = pixel.R - 123.68F;
+        }
+    }
+
+    /// <summary>
+    /// Load options for the YOLOv8-based NudeNet v3 models (320n/640m).
+    /// </summary>
+    /// <remarks>
+    /// Mirrors the reference implementation: the image is scaled so its longest side matches the model input,
+    /// anchored top-left with the remainder left black (zero), and loaded as NCHW in the 0-1 range.
+    /// </remarks>
+    public class NudeNetV3LoadOptions : TensorLoadOptions<float> {
+        public int InputSize { get; }
+
+        public NudeNetV3LoadOptions(int inputSize = 320) : base(img => new[] {1, 3, inputSize, inputSize}) {
+            InputSize = inputSize;
+            LoadPixel = LoadV3Pixels;
+        }
+
+        public override Image<Rgba32> PrepareImage(Image<Rgba32> image) {
+            var scale = (float)InputSize / Math.Max(image.Width, image.Height);
+            var width = Math.Max(1, (int)Math.Round(image.Width * scale));
+            var height = Math.Max(1, (int)Math.Round(image.Height * scale));
+            return image.Clone(ctx => ctx.Resize(width, height, KnownResamplers.Triangle));
+        }
+
+        private void LoadV3Pixels(Tensor<float> data, Point point, ref Rgba32 pixel) {
+            var y = point.Y;
+            var x = point.X;
+            data[0, 0, y, x] = pixel.B / 255F;
+            data[0, 1, y, x] = pixel.G / 255F;
+            data[0, 2, y, x] = pixel.R / 255F;
         }
     }
 

@@ -1,0 +1,45 @@
+services:
+  beta-censoring:
+    build: .
+    image: beta-censoring-v3
+    container_name: beta-censoring
+    ports:
+      - "2382:2382"
+    environment:
+      # 640m is more accurate; 320n is roughly 5-8x faster
+      BCS_ModelPath: /app/models/640m.onnx
+      # a reasonable starting point is half your CPU cores
+      BCS_Server__WorkerCount: "4"
+    # optional server config (thresholds, stickers, caching...), see config.example.yml
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    restart: unless-stopped
+
+  # HTTP(S) proxy that censors images on the way to the browser (see README)
+  censor-proxy:
+    image: mitmproxy/mitmproxy:12.2.3
+    container_name: censor-proxy
+    # flow_detail=0 and termlog_verbosity=warn keep the log to the add-on's own warnings
+    command: mitmdump --listen-port 8080 --set flow_detail=0 --set termlog_verbosity=warn -s /addon/censor_proxy.py
+    ports:
+      - "8080:8080"
+    environment:
+      CENSOR_URL: http://beta-censoring:2382
+      CENSOR_CONCURRENCY: "6"
+      CENSOR_ON_ERROR: block
+    volumes:
+      - ./proxy:/addon:ro
+      # keeps the proxy's certificate authority across restarts
+      - mitmproxy-ca:/home/mitmproxy/.mitmproxy
+    depends_on:
+      - beta-censoring
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  mitmproxy-ca:

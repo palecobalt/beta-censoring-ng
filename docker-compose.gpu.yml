@@ -1,0 +1,20 @@
+# GPU override for docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# (or set COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml in .env)
+services:
+  beta-censoring:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    image: beta-censoring-v3-gpu
+    environment:
+      BCS_Server__UseGpu: "true"
+      # model runs on the GPU at once; more than 1 caused "CUDA failure 716" errors under load
+      BCS_Server__GpuMaxConcurrentRuns: "1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

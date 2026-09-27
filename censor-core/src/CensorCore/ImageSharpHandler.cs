@@ -25,7 +25,7 @@ namespace CensorCore
             this._maxHeight = maxHeight ?? 1080;
         }
 
-        private async Task<byte[]> DownloadFile(Uri path)
+        private static async Task<byte[]> DownloadFile(Uri path)
         {
             using var client = new HttpClient();
             var result = await client.GetByteArrayAsync(path.ToString());
@@ -34,26 +34,28 @@ namespace CensorCore
 
         public async Task<ImageData> LoadImage(string path)
         {
+            return await LoadImageData(await LoadBytes(path));
+        }
+
+        /// <summary>
+        /// Reads the raw bytes of an image from a base64 data URI, a file path or a URL.
+        /// </summary>
+        public static async Task<byte[]> LoadBytes(string path)
+        {
             if (path.StartsWith("data:")) {
                 try {
-                    var encodedBytes = path.Split(',')[1];
-                    var contents = Convert.FromBase64String(encodedBytes);
-                    return await LoadImageData(contents);
+                    return Convert.FromBase64String(path.Split(',')[1]);
                 } catch (Exception e) {
                     throw new Exception("Invalid base64 data URI!", e);
                 }
             }
             if (Uri.TryCreate(path, UriKind.RelativeOrAbsolute, out var uri))
             {
-                var contents = uri.IsFile
+                return uri.IsFile
                     ? await System.IO.File.ReadAllBytesAsync(System.Web.HttpUtility.UrlDecode(uri.AbsolutePath))
                     : await DownloadFile(uri);
-                return await LoadImageData(contents);
-            } else
-            {
-                throw new Exception("Could not parse image URL!");
             }
-            
+            throw new Exception("Could not parse image URL!");
         }
 
         private Image<Rgba32> ResizeImage(Image<Rgba32> image) {
@@ -106,27 +108,33 @@ namespace CensorCore
         }
 
         public Task<InputImage<T>> LoadToTensor<T>(ImageData image, TensorLoadOptions<T> options) {
-            var img = image.SampledImage ?? image.SourceImage;
-            var origHeight = img.Height;
-            // img.CopyPixelDataTo(new Span<Rgba32>());
-            Tensor<T> data = new DenseTensor<T>(options.Dimensions(img));
-            img.ProcessPixelRows(accessor =>
-            {
-                for (int y = 0; y < accessor.Height; y++)
+            var source = image.SampledImage ?? image.SourceImage;
+            var img = options.PrepareImage(source);
+            try {
+                // img.CopyPixelDataTo(new Span<Rgba32>());
+                Tensor<T> data = new DenseTensor<T>(options.Dimensions(img));
+                img.ProcessPixelRows(accessor =>
                 {
-                    var pixelRow = accessor.GetRowSpan(y);
-
-                    for (int x = 0; x < pixelRow.Length; x++)
+                    for (int y = 0; y < accessor.Height; y++)
                     {
-                        // Get a reference to the pixel at position x
-                        ref Rgba32 pixel = ref pixelRow[x];
-                        if (options.LoadPixel != null) {
-                            options.LoadPixel(data, new Point(x, y), ref pixel);
+                        var pixelRow = accessor.GetRowSpan(y);
+
+                        for (int x = 0; x < pixelRow.Length; x++)
+                        {
+                            // Get a reference to the pixel at position x
+                            ref Rgba32 pixel = ref pixelRow[x];
+                            if (options.LoadPixel != null) {
+                                options.LoadPixel(data, new Point(x, y), ref pixel);
+                            }
                         }
                     }
+                });
+                return Task.FromResult(new InputImage<T>(data, image));
+            } finally {
+                if (!ReferenceEquals(img, source)) {
+                    img.Dispose();
                 }
-            });
-            return Task.FromResult(new InputImage<T>(data, image));
+            }
         }
 
         public Task<ImageData> LoadImageData(byte[] contents) {

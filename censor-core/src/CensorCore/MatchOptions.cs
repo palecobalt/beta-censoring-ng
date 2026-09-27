@@ -24,6 +24,22 @@ namespace CensorCore {
         /// </summary>
         /// <returns>Default match options.</returns>
         public static MatchOptions GetDefault() {
+            return GetDefault(NudeNetModelVersion.V2);
+        }
+
+        /// <summary>
+        /// Returns a set of sane defaults for matching results from the given model version.
+        /// </summary>
+        /// <returns>Default match options.</returns>
+        public static MatchOptions GetDefault(NudeNetModelVersion modelVersion) {
+            if (modelVersion == NudeNetModelVersion.V3) {
+                // v3 (YOLOv8) scores run noticeably lower than v2's; the reference implementation accepts anything over 0.25
+                var v3Classes = AIService.V3ClassList.Where(cn => cn.Split('_').Length > 2).ToDictionary(c => c, v => v.Contains("COVERED") ? 0.45F : 0.3F);
+                return new MatchOptions() {
+                    MinimumScore = 0.35F,
+                    ClassScores = v3Classes
+                };
+            }
             var complexClasses = AIService.ClassList.Where(cn => cn.Split('_').Length > 2).ToDictionary(c => c, v => v.Contains("COVERED") ? 0.6F : 0.4F);
             return new MatchOptions() {
                 MinimumScore = 0.55F,
