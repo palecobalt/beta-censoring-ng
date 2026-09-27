@@ -8,10 +8,17 @@ namespace CensorCore.Censoring {
         public static Action<IImageProcessingContext> GetMaskedBlurEffect(Image inputImage, Classification result, int padding, int level, float sizeFactor = 1F, float minimumLevel = 1F) {
             var cropRect = result.Box.ToRectangle();
             var mask = new PathEffectMask(cropRect, result.SourceAngle.GetValueOrDefault(), padding);
+            var bounds = (Rectangle)mask.GetBounds(inputImage);
+            var sigma = (Math.Max(minimumLevel, level) * Math.Max(2.5F, (Math.Min(cropRect.Width, cropRect.Height) / 100)))*sizeFactor;
+            // ImageSharp 3 throws when the blur radius (about 3 sigma) is larger than the region; ImageSharp 2 clamped
+            // the samples to the edges instead. A radius as large as the region already blurs all of it.
+            sigma = Math.Min(sigma, (Math.Min(bounds.Width, bounds.Height) - 1) / 3F);
             var extract = inputImage.Clone(x =>
             {
-                x.Crop((Rectangle)mask.GetBounds(inputImage));
-                x.GaussianBlur((Math.Max(minimumLevel, level) * Math.Max(2.5F, (Math.Min(cropRect.Width, cropRect.Height) / 100)))*sizeFactor);
+                x.Crop(bounds);
+                if (sigma > 0) {
+                    x.GaussianBlur(sigma);
+                }
             });
             return mask.GetMutation(extract);
         }
