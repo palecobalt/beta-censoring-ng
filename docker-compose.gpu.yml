@@ -16,5 +16,6 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              # GPU index or UUID from `nvidia-smi -L`; set GPU_DEVICE_ID in .env on multi-GPU hosts
+              device_ids: ["${GPU_DEVICE_ID:-0}"]
               capabilities: [gpu]
