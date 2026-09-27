@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../BetaCensor.shared.props" />
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CensorCore" Version="0.0.0-preview.0.55" />
+    <PackageReference Include="MediatR" Version="10.0.1" />
+    <PackageReference Include="ModulEngine" Version="0.0.0-preview.0.5" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="6.0.0" />
+  </ItemGroup>
+  <!-- <ItemGroup>
+    <ProjectReference Include="../../../censor-core/src/CensorCore/CensorCore.csproj" />
+  </ItemGroup> -->
+
+</Project>

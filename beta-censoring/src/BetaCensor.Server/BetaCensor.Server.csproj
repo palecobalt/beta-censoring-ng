@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <Import Project="../BetaCensor.shared.props" />
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>true</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CensorCore.ModelLoader" Version="0.0.0-preview.0.51" />
+    <PackageReference Include="CensorCore.Web" Version="0.0.0-preview.0.51" />
+    <PackageReference Include="ConfigurEngine" Version="0.2.0" />
+    <PackageReference Include="LiteDB" Version="5.0.11" />
+    <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
+    <PackageReference Include="YamlDotNet" Version="6.1.2" />
+    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="6.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BetaCensor.Web\BetaCensor.Web.csproj" />
+    <ProjectReference Include="..\BetaCensor.Web.Status\BetaCensor.Web.Status.csproj" />
+    <ProjectReference Include="..\BetaCensor.Workers\BetaCensor.Workers.csproj" />
+    <ProjectReference Include="..\BetaCensor.Caching\BetaCensor.Caching.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition=" '$(Configuration)' != 'Debug' ">
+    <Content Update="appsettings*.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+</Project>

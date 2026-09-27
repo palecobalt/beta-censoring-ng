@@ -1,0 +1,67 @@
+name: BetaCensor CI Build
+
+# This is lightly adapted from a friends build def so I really hope he knows what he's doing.
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - "docs/**"
+      - "client/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/client.yml"
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+    - name: Restore Tools
+      shell: bash
+      run: |
+        dotnet tool restore
+    - name: Run the Cake script
+      uses: cake-build/cake-action@v1
+      with:
+        target: Release
+        cake-version: tool-manifest
+      env:
+          NUGET_TOKEN: ${{secrets.NUGET_TOKEN}}
+          QUAY_USER: ${{secrets.QUAY_USER}}
+          QUAY_TOKEN: ${{secrets.QUAY_TOKEN}}
+    - uses: actions/upload-artifact@v3
+      name: Upload Artifacts
+      with:
+        name: beta-censor-server
+        path: dist/archive/*.zip
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: beta-censor-server
+        path: server
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with: 
+        prerelease: true
+        generate_release_notes: true
+        body: |
+          See [the full docs](https://silveredgold.github.io/beta-censoring/#introduction) (including the [the installation guide](https://silveredgold.github.io/beta-censoring/content/installation.html#installation) ) for full instructions on installing, configuring and using Beta Censoring.
+
+          This is an extremely early preview build, and I cannot guarantee that you won't experience bugs.
+        files: |
+          ./server/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
