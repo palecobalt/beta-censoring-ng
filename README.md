@@ -92,7 +92,10 @@ Settings (environment variables, or the `Server:` section of `config.yml`):
   makes GPU memory grow with the number of threads.
 - `BCS_Server__GpuMemoryLimitMB`: caps ONNX Runtime's GPU memory pool, but requests that need
   more fail instead of waiting, so normally leave it unset.
-- `BCS_Server__GpuDeviceId`: which GPU to use on multi-GPU hosts.
+- `GPU_DEVICE_ID` (in `.env`): which GPU the container gets on multi-GPU hosts, as an index or
+  UUID from `nvidia-smi -L` (default 0). The container then sees only that GPU, as device 0.
+- `BCS_Server__GpuDeviceId`: which GPU the server uses when it can see several (for example when
+  run without Docker).
 
 ## Censoring proxy (no extension)
 
@@ -129,6 +132,8 @@ of each other.
   timeout, AVIF/JPEG XL) with a grey placeholder; `pass` lets them through.
 - `CENSOR_MIN_BYTES`: images smaller than this are passed through untouched (default 4000).
 - `CENSOR_CONCURRENCY`, `CENSOR_TIMEOUT`: images censored at once, seconds per image.
+- `PROXY_PORT` (in `.env`): the host port the proxy is published on, if 8080 is already taken
+  (default 8080).
 
 **Behaviour and limits:**
 
