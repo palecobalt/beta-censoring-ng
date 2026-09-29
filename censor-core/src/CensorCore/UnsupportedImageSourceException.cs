@@ -11,5 +11,5 @@ public class UnsupportedImageSourceException : ArgumentException
 
     // the scheme is enough to act on; the rest of the source may be long or private
     private static string Describe(string source) =>
-        Uri.TryCreate(source, UriKind.Absolute, out var uri) ? uri.Scheme + ":" : "relative URL";
+        !source.StartsWith('/') && Uri.TryCreate(source, UriKind.Absolute, out var uri) ? uri.Scheme + ":" : "relative URL or path";
 }

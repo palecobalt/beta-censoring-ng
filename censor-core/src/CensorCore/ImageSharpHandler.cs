@@ -43,9 +43,29 @@ namespace CensorCore
         /// </summary>
         public bool AllowLocalFiles {get;set;}
 
+        // sites that refuse image requests without a browser's headers (hotlink protection)
+        private const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+        private static readonly Dictionary<string, string> KnownReferrers = new(StringComparer.OrdinalIgnoreCase) {
+            ["i.pximg.net"] = "https://www.pixiv.net/",
+        };
+
+        /// <summary>
+        /// The Referer sent with an image download: the site's page for image hosts that require it, otherwise the
+        /// image's own origin.
+        /// </summary>
+        public static Uri GetReferrer(Uri image) =>
+            KnownReferrers.TryGetValue(image.Host, out var referrer) ? new Uri(referrer) : new Uri(image.GetLeftPart(UriPartial.Authority) + "/");
+
         private static async Task<byte[]> DownloadFile(Uri path)
         {
-            return await Downloader.GetByteArrayAsync(path);
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            request.Headers.TryAddWithoutValidation("User-Agent", BrowserUserAgent);
+            // formats ImageSharp reads (no AVIF), so sites that pick a format by Accept send one of these
+            request.Headers.TryAddWithoutValidation("Accept", "image/webp,image/png,image/jpeg,image/gif,image/*;q=0.8,*/*;q=0.5");
+            request.Headers.Referrer = GetReferrer(path);
+            using var response = await Downloader.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
         }
 
         public async Task<ImageData> LoadImage(string path)
@@ -54,8 +74,9 @@ namespace CensorCore
         }
 
         /// <summary>
-        /// Reads the raw bytes of an image from a base64 data URI or an http(s) URL, or from a local file path or
-        /// file: URI when <paramref name="allowLocalFiles"/> is set. Anything else throws <see cref="UnsupportedImageSourceException"/>.
+        /// Reads the raw bytes of an image from a base64 data URI or an http(s) URL (including protocol-relative
+        /// //host/path URLs), or from a local file path or file: URI when <paramref name="allowLocalFiles"/> is set.
+        /// Anything else throws <see cref="UnsupportedImageSourceException"/>.
         /// </summary>
         public static async Task<byte[]> LoadBytes(string path, bool allowLocalFiles = false)
         {
@@ -65,6 +86,10 @@ namespace CensorCore
                 } catch (Exception e) {
                     throw new Exception("Invalid base64 data URI!", e);
                 }
+            }
+            // protocol-relative, as in a page's src attribute (4chan uses these); https is the safe guess
+            if (path.StartsWith("//")) {
+                path = "https:" + path;
             }
             var isUri = Uri.TryCreate(path, UriKind.Absolute, out var uri);
             if (isUri && (uri!.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)) {

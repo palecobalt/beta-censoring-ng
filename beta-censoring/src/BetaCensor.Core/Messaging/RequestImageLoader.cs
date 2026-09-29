@@ -20,7 +20,8 @@ public static class RequestImageLoader {
                 // try the URL instead
             }
         }
-        return await ImageSharpHandler.LoadBytes(System.Web.HttpUtility.UrlDecode(request.ImageUrl!));
+        // as the page has it: decoding would turn %2F into / and + into a space
+        return await ImageSharpHandler.LoadBytes(request.ImageUrl!);
     }
 
     private static bool IsImage(byte[] data) {
