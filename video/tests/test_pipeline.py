@@ -11,9 +11,9 @@ from unittest import mock
 import cv2
 import numpy as np
 
-from video_censor import pipeline
+from video_censor import media, pipeline
 from video_censor.config import Settings
-from video_censor.errors import TooLarge
+from video_censor.errors import CensorError, TooLarge
 
 OPTIONS = {"FACE_F": {"censorType": "blackbars", "level": 10}}
 SETTINGS = Settings(censor_url="http://unused", motion_padding=0)
@@ -114,6 +114,15 @@ class PipelineTests(unittest.TestCase):
             result = pipeline.censor_clip(clip, OPTIONS, SETTINGS, "x264")
         self.assertFalse(result.censored)
         self.assertEqual(result.body, clip)
+
+    def test_refuses_playlists(self):
+        # a playlist pointing at another file, which ffmpeg would otherwise open
+        self.make_clip(seconds=1)
+        playlist = os.path.join(self.work, "source")
+        with open(playlist, "w") as f:
+            f.write("ffconcat version 1.0\nfile clip.mp4\n")
+        with self.assertRaises(CensorError):
+            media.probe(playlist)
 
     def test_returns_audio_only_files_unchanged(self):
         path = os.path.join(self.work, "audio.webm")

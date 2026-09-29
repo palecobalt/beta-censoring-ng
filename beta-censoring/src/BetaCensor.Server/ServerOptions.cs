@@ -17,5 +17,12 @@ namespace BetaCensor.Server
         // More than one simultaneous run gave no speed-up on an RTX 3060 Ti and eventually corrupted the CUDA context.
         public int GpuMaxConcurrentRuns {get;set;} = 1;
         public bool EnableLargeMessages = true;
+        // "localhost" only accepts connections from this computer; "*" listens on every network interface (no authentication!)
+        public string ListenAddress {get;set;} = "localhost";
+        public int Port {get;set;} = 2382;
+        // web page origins allowed to call the server, besides browser extensions and its own pages; "*" allows any
+        public List<string> AllowedOrigins {get;set;} = new();
+        // announce the server on the local network over mDNS (only useful with a ListenAddress other than localhost)
+        public bool EnableDiscovery {get;set;} = false;
     }
 }

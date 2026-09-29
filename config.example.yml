@@ -6,6 +6,12 @@
 Server:
   WorkerCount: 4            # about half your CPU cores
   OptimizationMode: Normal  # None skips the person-cropping pre-pass
+  # Port: 2382
+  # ListenAddress: localhost  # only this computer can connect; "*" lets other machines on your network in.
+  #                           # The server has no authentication: anyone who can reach the port can use it.
+  # AllowedOrigins: []        # web pages allowed to call the server (browser extensions always are), e.g.
+  #                           # ["https://my-gallery.example"]; "*" allows any page, which is unsafe
+  # EnableDiscovery: false    # announce the server on your network over mDNS (with a ListenAddress other than localhost)
 
 # v3 defaults shown; lower values censor more readily
 MatchOptions:

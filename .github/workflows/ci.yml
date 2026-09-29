@@ -20,6 +20,8 @@ jobs:
         run: dotnet build -c Release beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj
       - name: Test censor-core
         run: dotnet test censor-core/src/CensorCore.Tests/CensorCore.Tests.csproj
+      - name: Test the server
+        run: dotnet test beta-censoring/src/BetaCensor.Server.Tests/BetaCensor.Server.Tests.csproj
 
   python:
     runs-on: ubuntu-latest

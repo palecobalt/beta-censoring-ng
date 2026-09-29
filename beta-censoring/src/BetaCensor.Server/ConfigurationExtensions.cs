@@ -89,6 +89,22 @@ public static class ServerConfigurationExtensions {
         });
     }
 
+    public static string GetListenUrl(this ServerOptions options) {
+        var address = string.IsNullOrWhiteSpace(options.ListenAddress) ? "localhost" : options.ListenAddress.Trim();
+        if (address is "*" or "+" or "0.0.0.0" or "::") {
+            return $"http://*:{options.Port}";
+        }
+        return System.Net.IPAddress.TryParse(address, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+            ? $"http://[{address}]:{options.Port}"
+            : $"http://{address}:{options.Port}";
+    }
+
+    public static bool IsLocalOnly(this ServerOptions options) {
+        var address = string.IsNullOrWhiteSpace(options.ListenAddress) ? "localhost" : options.ListenAddress.Trim();
+        return address.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || (System.Net.IPAddress.TryParse(address, out var ip) && System.Net.IPAddress.IsLoopback(ip));
+    }
+
     public static ServerOptions? GetServerOptions(this IConfiguration config) {
         var section = config.GetSection("Server");
         return section.Exists() ? section.Get<ServerOptions>() : null;

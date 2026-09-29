@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CensorCore.Web;
 [ApiController]
 [Route("[controller]")]
+[ImageSourceExceptionFilter]
 public class CensoringController : ControllerBase
 {
     private readonly AIService _ai;

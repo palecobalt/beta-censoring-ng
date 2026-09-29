@@ -41,7 +41,7 @@ public class CensorCommand : AsyncCommand<CensorCommand.CensorCommandSettings> {
             return 412;
         }
 
-        var handler = new BodyAreaImageHandler(new ImageSharpHandler(1000, 1000), settings.OptimizationMode);
+        var handler = new BodyAreaImageHandler(new ImageSharpHandler(1000, 1000) { AllowLocalFiles = true }, settings.OptimizationMode);
         AnsiConsole.MarkupLine("Preparing AI service and censoring components");
         var svc = Runtime.AIRuntime.CreateService(model, handler, settings.EnableAcceleration);
         if (settings.Verbose) {

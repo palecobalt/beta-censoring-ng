@@ -90,6 +90,14 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(audio_args("vorbis"), "aac")
         self.assertIsNone(audio_args(None))
 
+    def test_clip_inputs_are_limited_to_clip_formats(self):
+        info = VideoInfo(1280, 720, 5, Fraction(30), "h264", "aac")
+        for command in (media.sample_command("in", self.GEOMETRY, 6, (640, 360), "out/%06d.jpg"),
+                        media.decode_command("in", self.GEOMETRY),
+                        media.encode_command("in", self.GEOMETRY, info, "x264", "out.mp4")):
+            source = command.index("in")
+            self.assertEqual(command[source - 3:source], ["-format_whitelist", media.INPUT_FORMATS, "-i"])
+
     def test_encodes_mp4_with_faststart(self):
         command = media.encode_command("in", self.GEOMETRY, VideoInfo(1280, 720, 5, Fraction(30), "h264", None), "nvenc", "out.mp4")
         self.assertIn("h264_nvenc", command)

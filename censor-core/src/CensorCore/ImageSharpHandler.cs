@@ -25,22 +25,39 @@ namespace CensorCore
             this._maxHeight = maxHeight ?? 1080;
         }
 
+        // largest image download accepted (animated GIFs can be big)
+        public const int MaxDownloadBytes = 64 * 1024 * 1024;
+
+        // one client for every download: a new HttpClient per image runs out of sockets under load
+        private static readonly HttpClient Downloader = new(new SocketsHttpHandler {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            AutomaticDecompression = System.Net.DecompressionMethods.All,
+        }) {
+            Timeout = TimeSpan.FromSeconds(30),
+            MaxResponseContentBufferSize = MaxDownloadBytes,
+        };
+
+        /// <summary>
+        /// Allows <see cref="LoadImage"/> to read local files. Only for command-line use: a server must never read
+        /// files on behalf of its clients.
+        /// </summary>
+        public bool AllowLocalFiles {get;set;}
+
         private static async Task<byte[]> DownloadFile(Uri path)
         {
-            using var client = new HttpClient();
-            var result = await client.GetByteArrayAsync(path.ToString());
-            return result;
+            return await Downloader.GetByteArrayAsync(path);
         }
 
         public async Task<ImageData> LoadImage(string path)
         {
-            return await LoadImageData(await LoadBytes(path));
+            return await LoadImageData(await LoadBytes(path, AllowLocalFiles));
         }
 
         /// <summary>
-        /// Reads the raw bytes of an image from a base64 data URI, a file path or a URL.
+        /// Reads the raw bytes of an image from a base64 data URI or an http(s) URL, or from a local file path or
+        /// file: URI when <paramref name="allowLocalFiles"/> is set. Anything else throws <see cref="UnsupportedImageSourceException"/>.
         /// </summary>
-        public static async Task<byte[]> LoadBytes(string path)
+        public static async Task<byte[]> LoadBytes(string path, bool allowLocalFiles = false)
         {
             if (path.StartsWith("data:")) {
                 try {
@@ -49,13 +66,14 @@ namespace CensorCore
                     throw new Exception("Invalid base64 data URI!", e);
                 }
             }
-            if (Uri.TryCreate(path, UriKind.RelativeOrAbsolute, out var uri))
-            {
-                return uri.IsFile
-                    ? await System.IO.File.ReadAllBytesAsync(System.Web.HttpUtility.UrlDecode(uri.AbsolutePath))
-                    : await DownloadFile(uri);
+            var isUri = Uri.TryCreate(path, UriKind.Absolute, out var uri);
+            if (isUri && (uri!.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)) {
+                return await DownloadFile(uri);
             }
-            throw new Exception("Could not parse image URL!");
+            if (allowLocalFiles && (!isUri || uri!.IsFile)) {
+                return await System.IO.File.ReadAllBytesAsync(isUri ? uri!.LocalPath : path);
+            }
+            throw new UnsupportedImageSourceException(path);
         }
 
         private Image<Rgba32> ResizeImage(Image<Rgba32> image) {

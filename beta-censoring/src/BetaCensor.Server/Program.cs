@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.Http.Json;
 using System.Runtime.InteropServices;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://*:2382");
 // builder.WebHost.AdvertiseServer();
 
 builder.Configuration
@@ -24,6 +23,13 @@ builder.Configuration
 builder.Configuration
     .AddEnvironmentVariables("BCS_")
     .AddCommandLine(args);
+
+var serverOpts = builder.Configuration.GetServerOptions() ?? new ServerOptions();
+var listenUrl = serverOpts.GetListenUrl();
+builder.WebHost.UseUrls(listenUrl);
+if (!serverOpts.IsLocalOnly()) {
+    Console.WriteLine($"WARN: listening on {listenUrl}: anyone who can reach this port can use the server, it has no authentication");
+}
 
 builder.Host.UseSystemd();
 builder.Host.UseWindowsService();
@@ -49,8 +55,6 @@ if (!string.IsNullOrWhiteSpace(modelPath) && !File.Exists(modelPath) && !Directo
 }
 var model = await loader.GetModel(modelPath);
 if (model == null) throw new InvalidDataException("Failed to retrieve AI model! Aborting...");
-var serverOpts = builder.Configuration.GetServerOptions();
-serverOpts ??= new ServerOptions();
 
 builder.Services.AddCensoring(model, serverOpts.UseGpu, serverOpts.GpuDeviceId, serverOpts.GpuMemoryLimitMB * 1024L * 1024L, serverOpts.GpuMaxConcurrentRuns);
 builder.Services.AddSingleton<CensorCore.Censoring.ICensoringMiddleware, BetaCensor.Core.ObfuscationMiddleware>();
@@ -111,7 +115,9 @@ builder.Services.AddDefaultManagedRequestQueue();
 builder.Services.AddWorkers<DispatchWorkerService<CensorImageRequest, CensorImageResponse>>(builder.Configuration.GetSection("Server"));
 builder.Services.AddWorkers<DispatchNotificationService<CensorImageResponse>>(1);
 
-builder.Services.AddHostedService<DiscoveryService>();
+if (serverOpts.EnableDiscovery) {
+    builder.Services.AddHostedService<DiscoveryService>();
+}
 
 // var stickerOpts = builder.Configuration.GetSection("Stickers");
 // var captionsOpts = builder.Configuration.GetSection("Captions");
@@ -124,6 +130,17 @@ builder.Services.EnableCaching(cache => cache.AddHandler().AddOptions());
 
 
 var app = builder.Build();
+
+var originPolicy = new RequestOriginPolicy(serverOpts.AllowedOrigins);
+app.Use(async (context, next) => {
+    var origin = context.Request.Headers.Origin.ToString();
+    if (!originPolicy.IsAllowed(origin, context.Request.Scheme, context.Request.Host.Value ?? string.Empty)) {
+        app.Logger.LogWarning("Refused a request from origin {Origin}; add it to Server:AllowedOrigins to allow it", origin);
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return;
+    }
+    await next();
+});
 
 // if (app.Environment.IsDevelopment()) {
 app.UseSwagger();

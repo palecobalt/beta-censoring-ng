@@ -32,6 +32,7 @@ WORKDIR /app
 COPY --from=build /app .
 COPY models/320n.onnx models/640m.onnx ./models/
 ENV BCS_ModelPath=/app/models/640m.onnx \
+    BCS_Server__ListenAddress=* \
     BCS_Server__UseGpu=true
 EXPOSE 2382
 ENTRYPOINT ["dotnet", "BetaCensor.Server.dll"]
