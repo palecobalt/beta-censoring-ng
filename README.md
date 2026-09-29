@@ -11,7 +11,7 @@ Both upstream repositories are included with their full history, in `censor-core
 
 ## What changed
 
-- **ONNX Runtime 1.12.1 → 1.30.0.** v3 models are ONNX IR version 10; 1.12 only loads up to 8
+- **ONNX Runtime 1.12.1 → 1.26.0.** v3 models are ONNX IR version 10; 1.12 only loads up to 8
   (the "Unsupported model IR version" failure people hit when trying 640m).
 - **v3 model support in `AIService`.** v3 models are detected from their output shape.
   Preprocessing and decoding mirror NudeNet's reference Python: longest side scaled to 320/640,
@@ -26,8 +26,15 @@ Both upstream repositories are included with their full history, in `censor-core
   and `POST /censoring/detectBatch` (`{imageDataUrls: [...], censorOptions}`) return
   `{width, height, results: [{label, confidence, box}]}` without censoring. Boxes get the same
   scaling and merging as `censorImage` unless `transform: false` is sent.
-- **Model auto-download** falls back to `320n.onnx` from the newest NudeNet release (it used to
-  find nothing and abort with "Failed to retrieve AI model!").
+- **Model auto-download** fetches `320n.onnx` from NudeNet's `v3.4-weights` release and checks its
+  SHA-256 (it used to find nothing and abort with "Failed to retrieve AI model!"). When no model
+  can be found or loaded, the server says why and exits instead of failing on the first image.
+- **Only local connections by default,** and web pages can't use the server; see "Network access".
+- **Animated GIFs and WebP images are censored frame by frame,** through the REST API and through
+  the SignalR hub Beta Protection uses.
+- **Sticker packs work:** stickers used to be almost never drawn (only the blur behind them).
+- **Image downloads** send browser headers and a Referer (sites with hotlink protection answered
+  403), and protocol-relative `//host/path` URLs work.
 - The server builds against the local censor-core source instead of the NuGet packages.
 - **.NET 10** (from .NET 6, which is out of support) with current dependencies: ImageSharp 3.1 and
   ImageSharp.Drawing 2.1 (fixes seven published ImageSharp vulnerabilities), LiteDB 5.0.21, MediatR 12.5,
@@ -44,8 +51,10 @@ barefoot runners):
 - **Speed (model only, per image):** v2 0.3–4.5 s, v3 320n 40–90 ms, v3 640m 330–700 ms.
 - **End to end** through the REST API and the SignalR hub Beta Protection uses, with optimization
   mode Normal and None: censoring lands on the right regions.
-- **Not tested:** accuracy on explicit images, the Docker build itself (no Docker on the test VM),
-  Windows/DirectML, Beta Protection in a real browser.
+- **Also tested:** the Linux release zip, the Windows zip on Windows 11, and the Docker images
+  (CPU, and CUDA on a GeForce card).
+- **Not tested:** accuracy on explicit images, the macOS build, running as a Windows service,
+  DirectML.
 
 Observations from the sample: all three models (v2, 320n, 640m) labelled some men's faces
 `FACE_F`. 320n and v2 flagged bikini areas as `EXPOSED_*` at 0.3–0.6; 640m labelled them covered.
@@ -54,9 +63,9 @@ Observations from the sample: all three models (v2, 320n, 640m) labelled some me
 
 The NudeNet model weights are not part of this repository. `scripts/fetch-models.sh` downloads
 `320n.onnx` and `640m.onnx` from NudeNet's `v3.4-weights` release into `models/` and checks their
-SHA-256; the Docker build copies them from there. Without Docker, the server can also fetch a
-model itself at startup when `ModelPath` doesn't exist (it takes `320n.onnx` from the newest
-NudeNet release). NudeNet and its models are published by
+SHA-256; the Docker build copies them from there. Without Docker, the server fetches `320n.onnx`
+itself at startup when it finds no model (the same file, also checked). NudeNet and its models are
+published by
 [notAI-tech](https://github.com/notAI-tech/NudeNet) under the AGPL-3.0.
 
 ## Run from a release download
@@ -69,8 +78,11 @@ builds for Windows (x64), Linux (x64) and macOS (Apple Silicon); no .NET install
 3. In Beta Protection's settings set **Backend Host** to `http://localhost:2382`, select
    **Beta Censoring**, and click **Save and Reconnect**.
 
-On the first image the server downloads `320n.onnx` from NudeNet's releases and keeps it in the
-system temp folder (`.nudenet`). To use the larger, more accurate `640m` model, download it (for
+At its first start the server downloads `320n.onnx` from NudeNet's releases and keeps it in the
+system temp folder (`.nudenet`). If that fails (no internet, or GitHub's limit of 60 requests an
+hour per IP address, which VPN addresses can reach), download `320n.onnx` from the
+[v3.4-weights release](https://github.com/notAI-tech/NudeNet/releases/tag/v3.4-weights) and put
+it in the unpacked folder. To use the larger, more accurate `640m` model, download it (for
 example with `scripts/fetch-models.sh`) and set `ModelPath: <path to 640m.onnx>` in a `config.yml`
 in the unpacked folder (the server reads it from the folder it is started in), or set the
 `BCS_ModelPath` environment variable.
@@ -86,16 +98,16 @@ scripts/fetch-models.sh
 docker compose up -d --build
 ```
 
-Then in Beta Protection's settings set **Backend Host** to `http://<docker-host>:2382`, select
-**Beta Censoring**, and click **Save and Reconnect**.
+Then in Beta Protection's settings set **Backend Host** to `http://localhost:2382`, select
+**Beta Censoring**, and click **Save and Reconnect**. `docker-compose.yml` publishes the server
+(and the video service) on `127.0.0.1` only; to reach it from other machines, change the port to
+`"2382:2382"` (see "Network access").
 
 - Model: `BCS_ModelPath=/app/models/640m.onnx` (default) or `/app/models/320n.onnx`.
 - Workers: `BCS_Server__WorkerCount` (about half the host's cores).
 - Other settings: copy `config.example.yml` to `config.yml` and mount it at `/app/config.yml`.
   Environment variables override the file.
 
-The server has no authentication and listens on all interfaces, so keep port 2382 on a trusted
-network.
 
 ## GPU (NVIDIA)
 
@@ -150,11 +162,7 @@ proxy has to decrypt traffic with its own certificate authority, and the browser
 
 **What gets censored** is set in `proxy/censor-options.json` (class name → `censorType` and
 `level`). The file is reloaded automatically when it changes. Censor types: `blur`, `pixelate`,
-`blackbars`, `sticker`, `caption`. Classes: `EXPOSED_BREAST_F`, `EXPOSED_GENITALIA_F`,
-`EXPOSED_GENITALIA_M`, `EXPOSED_BUTTOCKS`, `EXPOSED_ANUS`, `EXPOSED_BELLY`, `EXPOSED_FEET`,
-`EXPOSED_ARMPITS`, `EXPOSED_BREAST_M`, `COVERED_BREAST_F`, `COVERED_GENITALIA_F`,
-`COVERED_BUTTOCKS`, `COVERED_BELLY`, `COVERED_FEET`, `COVERED_ARMPITS`, `COVERED_ANUS`,
-`FACE_F`, `FACE_M`.
+`blackbars`, `sticker:<category>`, `caption`. Classes: see "API".
 
 **Merging boxes:** set `MergeOverlapping: true` under `CensorOptions` in `config.yml` (then
 `docker compose restart beta-censoring`) to combine overlapping censored areas of any body part
@@ -182,8 +190,8 @@ of each other.
 **Behaviour and limits:**
 
 - The proxy asks sites for JPEG/WebP instead of AVIF/JPEG XL, which Beta Censoring can't read.
-- Animated GIFs are censored frame by frame: the model runs on a frame every 200 ms of animation
-  time and frames in between reuse the nearby boxes (see the animation settings in
+- Animated GIFs and WebP images are censored frame by frame: the model runs on a frame every
+  200 ms of animation time and frames in between reuse the nearby boxes (see the animation settings in
   `config.example.yml`). On an RTX 3060 Ti host a 35–81 frame GIF takes about 3 s, and it only appears once every
   frame is done.
 - Short video clips are censored by `video-censor` (see "Video clip censoring" below). A clip only
@@ -197,13 +205,13 @@ of each other.
 
 ## Video clip censoring
 
-`docker compose` also starts `video-censor` on port 2383, which censors short video clips for the
-proxy. The proxy sends it complete MP4, WebM and Ogg files up to `VIDEO_MAX_MB`, and answers the
+`docker compose` also starts `video-censor` on port 2383 (published on `127.0.0.1`), which
+censors short video clips for the proxy. The proxy sends it complete MP4, WebM and Ogg files up to `VIDEO_MAX_MB`, and answers the
 browser with the censored clip once it's done, as one complete response without byte ranges.
 Censored clips are kept in memory, so replays and range requests don't go back to the origin.
 Everything else that's video follows `VIDEO_POLICY` (see the proxy settings).
 
-`POST /censor` with the clip as the request body (MP4, WebM, Ogg, or anything else ffmpeg reads)
+`POST /censor` with the clip as the request body (MP4/QuickTime, WebM/Matroska or Ogg)
 and the censor options as JSON in an `X-Censor-Options` header returns the clip as H.264 MP4 with
 the censoring drawn on. Clips with nothing to censor come back unchanged; `X-Censored` says which,
 and `X-Video-Censor-Stats` has timings. Errors: 413 over the limits, 422 not a readable video,
@@ -242,6 +250,80 @@ Settings (environment variables on `video-censor`):
 Tests: `cd video && python3 -m unittest discover -s tests` (needs numpy and opencv-python-headless,
 plus ffmpeg for the pipeline tests), or inside the image with
 `docker run --rm --entrypoint python3 video-censor -m unittest discover -s tests`.
+
+## Network access
+
+The server has no authentication, so by default it only accepts connections from the computer it
+runs on, and browsers only let the extension and the server's own pages (status page, `/swagger`)
+use it, not other web pages. Before v0.3.0 it listened on every network interface and read local
+files named in a request, so anyone on the network, or any web page open in the browser, could have
+it return image files from the disk.
+
+To use the server from other devices on the same network (Beta Protection on another computer, or
+in a phone browser that runs extensions, with `http://<this computer's IP>:2382` as Backend Host),
+set in `config.yml`:
+
+```yaml
+Server:
+  ListenAddress: "*"   # every network interface; anyone who can reach port 2382 can use the server
+```
+
+Only do that on a network you trust, and allow port 2382 in the computer's firewall. Other
+`Server:` settings: `Port` (2382), `AllowedOrigins` (web pages allowed to call the server, such as
+`["https://my-gallery.example"]`), `EnableDiscovery` (announce the server over mDNS).
+
+## Sticker packs
+
+The original sticker packs can no longer be downloaded, and none are included here. A pack is a
+folder of images per category:
+
+- **Folder:** `stickers/<Category>/*.png` in the server's folder. Images in subfolders of a
+  category count towards it.
+- **Zip:** a `*.betapkg` (or `*-stickers.zip`) with the category folders at its root, in the
+  server's folder or in `stickers/`.
+- **Elsewhere:** `Stickers: LocalStores: [<folder or zip>]`, or `Stickers: Paths: {Category:
+  [<folders>]}` in `config.yml`.
+
+Transparent PNGs work best; anything ImageSharp reads (PNG, JPEG, WebP, GIF, BMP, TIFF) is
+accepted. A sticker only goes on a censored area whose aspect ratio is within 25% of its own
+(`Stickers: RatioMargin`); areas with no fitting sticker only get the blur, so include several
+shapes: square, 3:2 and 2:1 wide, 2:3 and 1:2 tall, and around 4:1 for eyes. Restart the server
+after changing a pack; the categories then appear in Beta Protection's sticker settings.
+
+## Run as a service
+
+- **Windows:** `sc.exe create BetaCensoring binPath= "C:\path\to\BetaCensor.Server.exe" start= auto`
+  in an administrator prompt, then `sc.exe start BetaCensoring`. The server reads `config.yml`
+  from its own folder. Put the model file there too: Windows stops services that take more than
+  30 s to start, which a model download can.
+- **Linux (systemd):** a unit with `Type=notify`, `ExecStart=/path/to/BetaCensor.Server` and
+  `WorkingDirectory=/path/to` (the folder with `config.yml` and `stickers/`), and a `User=` of your
+  choice.
+
+## API
+
+Besides the SignalR hub at `/live` that Beta Protection uses, there is a REST API; `/swagger`
+lists every endpoint.
+
+```bash
+curl -X POST http://localhost:2382/censoring/censorImage -H "Content-Type: application/json" \
+  -d '{"imageUrl": "https://example.com/photo.jpg",
+       "censorOptions": {"EXPOSED_BREAST_F": {"censorType": "pixelate", "level": 10}}}' -o censored.jpg
+```
+
+- `imageUrl` (http or https) or `imageDataUrl` (a `data:` URI) says which image; local files
+  aren't accepted. The `Content-Type: application/json` header is required.
+- Censor types: `blur`, `pixelate`, `blackbars`, `sticker:<category>`, `caption`, and `none`;
+  `level` runs from 1 to 10.
+- Classes (NudeNet v3, with the v2 names): `EXPOSED_BREAST_F`, `EXPOSED_GENITALIA_F`,
+  `EXPOSED_GENITALIA_M`, `EXPOSED_BUTTOCKS`, `EXPOSED_ANUS`, `EXPOSED_BELLY`, `EXPOSED_FEET`,
+  `EXPOSED_ARMPITS`, `EXPOSED_BREAST_M`, `COVERED_BREAST_F`, `COVERED_GENITALIA_F`,
+  `COVERED_BUTTOCKS`, `COVERED_BELLY`, `COVERED_FEET`, `COVERED_ARMPITS`, `COVERED_ANUS`, `FACE_F`,
+  `FACE_M`. There are none for other body parts, such as legs.
+- `POST /censoring/detect` and `/censoring/detectBatch` return the matches without censoring (see
+  "What changed").
+- Errors: 400 for an unsupported image source, 502 when the image couldn't be downloaded, 422 when
+  it couldn't be read.
 
 ## Run without Docker
 
