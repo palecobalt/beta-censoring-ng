@@ -33,9 +33,13 @@ public class CachedCensorImageRequestHandler : IRequestHandler<CensorImageReques
             try {
                 using var scope = _scopeFactory.CreateScope();
                 var matchOptions = scope.ServiceProvider.GetService<MatchOptions>();
-                var data = await request.LoadBytes();
+                var requestKey = request.GetKey();
+                var resultsCache = _options.EnableMatchCaching ? _cacheProvider.GetCacheOrNull(CensoringCaches.Matches) : null;
+                // looked up before the image is loaded, so a cached image isn't downloaded again
+                var cached = resultsCache == null ? default : await resultsCache.TryGetAsync<ImageResult>(requestKey);
+                var data = cached.HasValue ? Array.Empty<byte>() : await request.LoadBytes();
                 // animations are censored frame by frame and not cached: the match cache holds one frame's matches
-                if (scope.ServiceProvider.GetService<AnimatedImageCensor>() is { } animated) {
+                if (!cached.HasValue && scope.ServiceProvider.GetService<AnimatedImageCensor>() is { } animated) {
                     timer.Start();
                     var animationParser = request.CensorOptions.Any() ? new StaticResultsParser(request.CensorOptions) : null;
                     if (await animated.CensorAnimated(data, matchOptions, animationParser) is { } animation) {
@@ -49,11 +53,10 @@ public class CachedCensorImageRequestHandler : IRequestHandler<CensorImageReques
                     }
                     timer.Reset();
                 }
-                var resultsCache = _cacheProvider.GetCacheOrNull(CensoringCaches.Matches);
                 ImageResult? result = null;
-                var requestKey = request.GetKey();
-                if (resultsCache != null && _options.EnableMatchCaching) {
-                    
+                if (cached.HasValue) {
+                    result = cached.Value;
+                } else if (resultsCache != null) {
                     result = await resultsCache.GetOrSetAsync<ImageResult>(requestKey, async _ => {
                         _logger.LogDebug($"Missed cache for {new string(requestKey.Take(32).ToArray())}, running model!");
                         var output = await _ai.RunModel(data, matchOptions);
