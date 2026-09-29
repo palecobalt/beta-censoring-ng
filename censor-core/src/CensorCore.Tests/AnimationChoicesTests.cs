@@ -43,4 +43,20 @@ public class AnimationChoicesTests {
         });
         return (face.ToList(), other.ToList());
     }
+
+    [Fact]
+    public void TellsAreasApartByPosition() {
+        static Classification Face(float x, float y) => new(new BoundingBox(x, y, x + 100, y + 120), 1F, "FACE_F");
+        AnimationChoices.Begin();
+
+        var left = AnimationChoices.GetArea(Face(100, 100));
+        var right = AnimationChoices.GetArea(Face(400, 100));
+
+        Assert.NotEqual(left, right);
+        // the same faces a frame later, moved a little
+        Assert.Equal(left, AnimationChoices.GetArea(Face(130, 110)));
+        Assert.Equal(right, AnimationChoices.GetArea(Face(380, 90)));
+        // another label in the same place is another area
+        Assert.NotEqual(left, AnimationChoices.GetArea(new Classification(new BoundingBox(100, 100, 200, 220), 1F, "FACE_M")));
+    }
 }

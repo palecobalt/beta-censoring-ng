@@ -38,7 +38,7 @@ namespace CensorCore.Censoring
             var usePixels = _globalOpts.ForcePixelBackground == true || ( options.Parameters != null
                 ? options.Parameters.TryGetFirst("usePixels", out var pixelOption) ? (bool.TryParse((string)pixelOption, out var usePixelOption) && usePixelOption) : false
                 : false );
-            var sticker = await AnimationChoices.Choose($"sticker|{result.Label}|{string.Join(';', options.Categories ?? new List<string>())}",
+            var sticker = await AnimationChoices.Choose($"sticker|{AnimationChoices.GetArea(result)}|{string.Join(';', options.Categories ?? new List<string>())}",
                 () => GetImageAsync(boxRatio, options.Categories));
             if (useBlur) {
                 var blurMutation = CensorEffects.GetMaskedBlurEffect(inputImage, result, padding, level, minimumLevel: 10);
