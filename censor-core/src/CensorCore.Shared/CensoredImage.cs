@@ -8,7 +8,7 @@ namespace CensorCore
         {
             ImageContents = imageContents;
             MimeType = mimeType;
-            ImageDataUrl = imageDataUrl ?? $"data:{mimeType};base64,{Convert.ToBase64String(imageContents, Base64FormattingOptions.InsertLineBreaks)}";
+            ImageDataUrl = imageDataUrl ?? $"data:{mimeType};base64,{Convert.ToBase64String(imageContents)}";
         }
 
         public string MimeType {get;}

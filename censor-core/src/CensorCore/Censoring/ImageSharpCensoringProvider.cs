@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CensorCore.Censoring;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 
@@ -94,15 +95,15 @@ namespace CensorCore.Censoring
             }
             using (var ms = new MemoryStream())
             {
-                if (image.ImageData.Format != null) {
-                    var format = image.ImageData.Format;
-                    img.Save(ms, format);
-                    return new CensoredImage(ms.ToArray(), format.DefaultMimeType, img.ToBase64String(format));
+                var format = image.ImageData.Format ?? PngFormat.Instance;
+                // a greyscale JPEG would otherwise be saved greyscale too, turning coloured stickers and captions grey
+                if (format is JpegFormat && img.Metadata.GetJpegMetadata() is { ColorType: JpegEncodingColor.Luminance } jpeg) {
+                    img.Save(ms, new JpegEncoder { ColorType = JpegEncodingColor.YCbCrRatio420, Quality = jpeg.Quality });
                 } else {
-                    img.Save(ms, PngFormat.Instance);
-                    return new CensoredImage(ms.ToArray(), "image/png", img.ToBase64String(PngFormat.Instance));
+                    img.Save(ms, format);
                 }
-                
+                // the data URL is made from these bytes rather than by encoding the image a second time
+                return new CensoredImage(ms.ToArray(), format.DefaultMimeType, null);
             }
             void AddCensor(int layer, Classification? match, ImageCensorOptions? censor, Action<IImageProcessingContext> mutation) {
                 if (censorEffects != null) {
