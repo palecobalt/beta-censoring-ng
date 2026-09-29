@@ -47,9 +47,9 @@ public class CensoringController : ControllerBase
                 parser = new StaticResultsParser(requestBody.CensorOptions);
             }
             var imageData = await ImageSharpHandler.LoadBytes(imageUrl);
-            // animated GIFs are censored frame by frame when the host registers support for them
+            // animated GIFs and WebP images are censored frame by frame when the host registers support for them
             var animated = HttpContext.RequestServices.GetService(typeof(AnimatedImageCensor)) as AnimatedImageCensor;
-            var censored = animated == null ? null : await animated.CensorAnimatedGif(imageData, matchOptions, parser);
+            var censored = animated == null ? null : await animated.CensorAnimated(imageData, matchOptions, parser);
             if (censored == null) {
                 var result = await this._ai.RunModel(imageData, matchOptions);
                 if (result == null) {

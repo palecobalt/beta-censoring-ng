@@ -18,17 +18,23 @@ namespace CensorCore.Censoring
         public float? MergeDistance { get; set; } = 0F;
 
         /// <summary>
-        /// Censors every frame of animated GIFs instead of returning only the first frame.
+        /// Censors every frame of animated GIFs and WebP images instead of returning only the first frame.
+        /// Unset uses <see cref="CensorAnimatedGifs"/>, its old name.
+        /// </summary>
+        public bool? CensorAnimatedImages { get; set; }
+
+        /// <summary>
+        /// Old name of <see cref="CensorAnimatedImages"/>, still read from existing configurations.
         /// </summary>
         public bool? CensorAnimatedGifs { get; set; } = true;
 
         /// <summary>
-        /// How often, in animation time, to run the model on a GIF frame; frames in between reuse nearby matches.
+        /// How often, in animation time, to run the model on a frame; frames in between reuse nearby matches.
         /// </summary>
         public int? AnimationDetectionIntervalMs { get; set; } = 200;
 
         /// <summary>
-        /// Animated GIFs with more frames than this are censored as a still image (first frame only).
+        /// Animations with more frames than this are censored as a still image (first frame only).
         /// </summary>
         public int? AnimationMaxFrames { get; set; } = 500;
 

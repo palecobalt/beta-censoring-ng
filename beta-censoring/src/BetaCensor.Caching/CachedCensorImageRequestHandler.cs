@@ -33,6 +33,22 @@ public class CachedCensorImageRequestHandler : IRequestHandler<CensorImageReques
             try {
                 using var scope = _scopeFactory.CreateScope();
                 var matchOptions = scope.ServiceProvider.GetService<MatchOptions>();
+                var data = await request.LoadBytes();
+                // animations are censored frame by frame and not cached: the match cache holds one frame's matches
+                if (scope.ServiceProvider.GetService<AnimatedImageCensor>() is { } animated) {
+                    timer.Start();
+                    var animationParser = request.CensorOptions.Any() ? new StaticResultsParser(request.CensorOptions) : null;
+                    if (await animated.CensorAnimated(data, matchOptions, animationParser) is { } animation) {
+                        timer.Stop();
+                        _logger.LogInformation($"Censoring completed in {timer.Elapsed.TotalSeconds}s ({request.RequestId}:{animation.MimeType}, animated)");
+                        return new CensorImageResponse {
+                            RequestId = request.RequestId,
+                            CensoredImage = animation,
+                            CensoringMetadata = new CensoringSession(timer.Elapsed)
+                        };
+                    }
+                    timer.Reset();
+                }
                 var resultsCache = _cacheProvider.GetCacheOrNull(CensoringCaches.Matches);
                 ImageResult? result = null;
                 var requestKey = request.GetKey();
@@ -40,11 +56,11 @@ public class CachedCensorImageRequestHandler : IRequestHandler<CensorImageReques
                     
                     result = await resultsCache.GetOrSetAsync<ImageResult>(requestKey, async _ => {
                         _logger.LogDebug($"Missed cache for {new string(requestKey.Take(32).ToArray())}, running model!");
-                        var output = await RunModel(request, matchOptions);
+                        var output = await _ai.RunModel(data, matchOptions);
                         return output;
                     });
                 } else {
-                    result = await RunModel(request, matchOptions);
+                    result = await _ai.RunModel(data, matchOptions);
                 }
                 // if (resultsCache != null && resultsCache.TryGet<ImageResult>(request.GetKey()) is var cacheResult && cacheResult.HasValue) {
                 //     result = cacheResult.Value;
@@ -93,23 +109,6 @@ public class CachedCensorImageRequestHandler : IRequestHandler<CensorImageReques
         } else {
             return MessageResponse.GetError<CensorImageResponse>(request.RequestId, "Could not determine image URL from request!");
         }
-    }
-
-    private async Task<ImageResult?> RunModel(CensorImageRequest request, MatchOptions options) {
-        ImageResult? result = null;
-        if (string.IsNullOrWhiteSpace(request.ImageDataUrl)) {
-            result = await this._ai.RunModel(System.Web.HttpUtility.UrlDecode(request.ImageUrl!), options);
-        } else if (string.IsNullOrWhiteSpace(request.ImageUrl)) {
-            result = await this._ai.RunModel(request.ImageDataUrl, options);
-        } else {
-            //we have both, so we can try them both
-            try {
-                result = await this._ai.RunModel(request.ImageDataUrl!, options);
-            } catch {
-                result = await this._ai.RunModel(System.Web.HttpUtility.UrlDecode(request.ImageUrl!), options);
-            }
-        }
-        return result;
     }
 
     private string? GetCensoringCacheKey(ImageResult result, CensorImageRequest request, string requestKey) {

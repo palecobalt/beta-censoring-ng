@@ -26,13 +26,27 @@ public class CensorImageRequestHandler : IRequestHandler<CensorImageRequest, Cen
             try {
                 using var scope = _scopeFactory.CreateScope();
                 var matchOptions = scope.ServiceProvider.GetService<MatchOptions>();
-                var result = await RunModel(request, matchOptions);
+                IResultParser? parser = null;
+                if (request.CensorOptions.Any()) {
+                    parser = new StaticResultsParser(request.CensorOptions);
+                }
+                var data = await request.LoadBytes();
+                if (scope.ServiceProvider.GetService<AnimatedImageCensor>() is { } animated) {
+                    timer.Start();
+                    if (await animated.CensorAnimated(data, matchOptions, parser) is { } animation) {
+                        timer.Stop();
+                        _logger.LogInformation($"Censoring completed in {timer.Elapsed.TotalSeconds}s ({request.RequestId}:{animation.MimeType}, animated)");
+                        return new CensorImageResponse {
+                            RequestId = request.RequestId,
+                            CensoredImage = animation,
+                            CensoringMetadata = new CensoringSession(timer.Elapsed)
+                        };
+                    }
+                    timer.Reset();
+                }
+                var result = await _ai.RunModel(data, matchOptions);
                 if (result != null) {
                     timer.Start();
-                    IResultParser? parser = null;
-                    if (request.CensorOptions.Any()) {
-                        parser = new StaticResultsParser(request.CensorOptions);
-                    }
                     var censored = await this._censor.CensorImage(result, parser);
                     timer.Stop();
                     _logger.LogInformation($"Censoring completed in {timer.Elapsed.TotalSeconds}s ({request.RequestId}:{censored.MimeType})");
@@ -51,22 +65,5 @@ public class CensorImageRequestHandler : IRequestHandler<CensorImageRequest, Cen
         } else {
             return MessageResponse.GetError<CensorImageResponse>(request.RequestId, "Could not determine image URL from request!");
         }
-    }
-
-    private async Task<ImageResult?> RunModel(CensorImageRequest request, MatchOptions options) {
-        ImageResult? result = null;
-        if (string.IsNullOrWhiteSpace(request.ImageDataUrl)) {
-            result = await this._ai.RunModel(System.Web.HttpUtility.UrlDecode(request.ImageUrl!), options);
-        } else if (string.IsNullOrWhiteSpace(request.ImageUrl)) {
-            result = await this._ai.RunModel(request.ImageDataUrl, options);
-        } else {
-            //we have both, so we can try them both
-            try {
-                result = await this._ai.RunModel(request.ImageDataUrl!, options);
-            } catch {
-                result = await this._ai.RunModel(System.Web.HttpUtility.UrlDecode(request.ImageUrl!), options);
-            }
-        }
-        return result;
     }
 }

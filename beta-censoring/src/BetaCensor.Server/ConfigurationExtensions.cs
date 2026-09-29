@@ -35,6 +35,7 @@ public static class ServerConfigurationExtensions {
             defaults.LayerModifier = (matchOpts.LayerModifier != null && matchOpts.LayerModifier.Any()) ? matchOpts.LayerModifier : new Dictionary<string, int> {["EYES_F"] = 10, ["MOUTH_F"] = 10};
             defaults.MergeOverlapping = matchOpts.MergeOverlapping ?? false;
             defaults.MergeDistance = matchOpts.MergeDistance ?? 0F;
+            defaults.CensorAnimatedImages = matchOpts.CensorAnimatedImages;
             defaults.CensorAnimatedGifs = matchOpts.CensorAnimatedGifs ?? true;
             defaults.AnimationDetectionIntervalMs = matchOpts.AnimationDetectionIntervalMs ?? 200;
             defaults.AnimationMaxFrames = matchOpts.AnimationMaxFrames ?? 500;

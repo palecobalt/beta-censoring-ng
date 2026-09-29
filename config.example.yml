@@ -28,9 +28,10 @@ CensorOptions:
   RelativeCensorScale: 1.0   # enlarge every censored area (1.3 = 30% bigger)
   MergeOverlapping: false    # merge overlapping boxes of any body part that use the same censor type
   MergeDistance: 0.0         # also merge boxes this close, as a fraction of box size (0.1 = 10%)
-  CensorAnimatedGifs: true           # censor every frame of animated GIFs (false = first frame only)
+  CensorAnimatedImages: true         # censor every frame of animated GIFs and WebP (false = first frame only;
+                                     # the old name CensorAnimatedGifs still works)
   AnimationDetectionIntervalMs: 200  # run the model on a frame this often; frames in between reuse nearby boxes
-  AnimationMaxFrames: 500            # GIFs with more frames are censored as a still image
+  AnimationMaxFrames: 500            # animations with more frames are censored as a still image
 
 Caching:
   EnableMatchCaching: true
