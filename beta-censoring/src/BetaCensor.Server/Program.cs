@@ -53,8 +53,19 @@ var modelPath = builder.Configuration["ModelPath"];
 if (!string.IsNullOrWhiteSpace(modelPath) && !File.Exists(modelPath) && !Directory.Exists(modelPath)) {
     Console.WriteLine($"WARN: ModelPath '{modelPath}' does not exist, searching default locations instead");
 }
-var model = await loader.GetModel(modelPath);
-if (model == null) throw new InvalidDataException("Failed to retrieve AI model! Aborting...");
+var modelHelp = $"Download {RepositoryDownloadClient.DefaultModelName} (or the larger 640m.onnx) from {RepositoryDownloadClient.DefaultModelPage}, "
+    + "put it in the server's folder, or set ModelPath to its location.";
+byte[]? model = null;
+try {
+    model = await loader.GetModel(modelPath);
+} catch (Exception e) {
+    Console.Error.WriteLine($"ERROR: no model file was found, and downloading one failed: {e.Message}");
+}
+if (model == null) {
+    Console.Error.WriteLine($"ERROR: could not get the NudeNet model. {modelHelp}");
+    Environment.Exit(1);
+}
+Console.WriteLine($"Using the model from {loader.Source}");
 
 builder.Services.AddCensoring(model, serverOpts.UseGpu, serverOpts.GpuDeviceId, serverOpts.GpuMemoryLimitMB * 1024L * 1024L, serverOpts.GpuMaxConcurrentRuns);
 builder.Services.AddSingleton<CensorCore.Censoring.ICensoringMiddleware, BetaCensor.Core.ObfuscationMiddleware>();
@@ -130,6 +141,15 @@ builder.Services.EnableCaching(cache => cache.AddHandler().AddOptions());
 
 
 var app = builder.Build();
+
+// load the model now rather than at the first request, so a broken model file shows up at once
+try {
+    app.Services.GetRequiredService<AIService>();
+} catch (Exception e) {
+    Console.Error.WriteLine($"ERROR: could not load the model from {loader.Source}: {e.Message}");
+    Console.Error.WriteLine($"The file may be incomplete or not an ONNX model. {modelHelp}");
+    Environment.Exit(1);
+}
 
 var originPolicy = new RequestOriginPolicy(serverOpts.AllowedOrigins);
 app.Use(async (context, next) => {

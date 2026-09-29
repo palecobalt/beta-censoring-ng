@@ -7,6 +7,11 @@ public class ModelLoader {
     private readonly List<Assembly> _searchAssemblies;
     private readonly ModelLoaderOptions _options;
 
+    /// <summary>
+    /// Where the model returned by <see cref="GetModel"/> came from: a file path, a download, or an embedded resource.
+    /// </summary>
+    public string? Source { get; private set; }
+
     public ModelLoader(List<string> searchPaths, List<Assembly> searchAssemblies, ModelLoaderOptions opts)
     {
         this._searchPaths = searchPaths;
@@ -27,9 +32,11 @@ public class ModelLoader {
 
     public async Task<byte[]?> GetLocalModel(string? filePath) {
         if (filePath != null && File.Exists(filePath) && Path.GetExtension(filePath) == ".onnx") {
+            Source = Path.GetFullPath(filePath);
             return File.ReadAllBytes(filePath);
         }
         else if (GetModelInDirectory(filePath, _options) is var modelFile && modelFile != null) {
+            Source = modelFile.FullName;
             return File.ReadAllBytes(modelFile.FullName);
         }
         else {
@@ -37,11 +44,13 @@ public class ModelLoader {
             
             var local = _searchPaths.Select(p => GetModelInDirectory(p, _options)).FirstOrDefault(p => p != null);
             if (local != null) {
+                Source = local.FullName;
                 return await File.ReadAllBytesAsync(local.FullName);
             }
             //it's getting dire. Check for an embedded model.
             var embedded = GetModelResource(Assembly.GetEntryAssembly());
             if (embedded != null) {
+                Source = "embedded resource";
                 return embedded;
             }
             return null;
@@ -50,12 +59,27 @@ public class ModelLoader {
 
     public async Task<(string FileName, byte[] ModelData)?> DownloadModel(bool saveToSharedLocation = false) {
         var client = new RepositoryDownloadClient(_options.RepositorySlug);
-        var model = await client.DownloadModel(_options.GetClassifier, _options.PreferBaseModel);
+        (string FileName, byte[] ModelData)? model = null;
+        if (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == RepositoryDownloadClient.DefaultRepository) {
+            try {
+                model = await RepositoryDownloadClient.DownloadDefaultModel();
+            } catch (Exception e) {
+                Console.WriteLine($"WARN: downloading {RepositoryDownloadClient.DefaultModelName} failed ({e.Message}), searching the releases instead");
+            }
+        }
+        model ??= await client.DownloadModel(_options.GetClassifier, _options.PreferBaseModel);
+        if (model != null) {
+            Source = $"a download of {model.Value.FileName}";
+        }
         if (model != null && saveToSharedLocation) {
             try {
                 var tempPath = Path.Combine(Path.GetTempPath(), ".nudenet");
                 Directory.CreateDirectory(tempPath);
-                await File.WriteAllBytesAsync(Path.Combine(tempPath, model.Value.FileName), model.Value.ModelData);
+                // written under another name first, so an interrupted write never leaves a partial model to be found later
+                var target = Path.Combine(tempPath, model.Value.FileName);
+                await File.WriteAllBytesAsync(target + ".part", model.Value.ModelData);
+                File.Move(target + ".part", target, overwrite: true);
+                Source = target;
             } catch {
                 //ignored
             }
