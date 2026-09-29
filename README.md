@@ -31,7 +31,7 @@ Both upstream repositories are included with their full history, in `censor-core
   can be found or loaded, the server says why and exits instead of failing on the first image.
 - **Only local connections by default,** and web pages can't use the server; see "Network access".
 - **Animated GIFs and WebP images are censored frame by frame,** through the REST API and through
-  the SignalR hub Beta Protection uses.
+  the SignalR hub Beta Protection uses (see "With Beta Protection" for its part).
 - **Sticker packs work:** stickers used to be almost never drawn (only the blur behind them).
 - **Image downloads** send browser headers and a Referer (sites with hotlink protection answered
   403), and protocol-relative `//host/path` URLs work.
@@ -51,8 +51,9 @@ barefoot runners):
 - **Speed (model only, per image):** v2 0.3–4.5 s, v3 320n 40–90 ms, v3 640m 330–700 ms.
 - **End to end** through the REST API and the SignalR hub Beta Protection uses, with optimization
   mode Normal and None: censoring lands on the right regions.
-- **Also tested:** the Linux release zip, the Windows zip on Windows 11, and the Docker images
-  (CPU, and CUDA on a GeForce card).
+- **Also tested:** the Linux release zip, the Windows zip on Windows 11, the Docker images (CPU,
+  and CUDA on a GeForce card), and Beta Protection 0.2.10 in Chromium 153 (photos, stickers,
+  animated GIF and WebP).
 - **Not tested:** accuracy on explicit images, the macOS build, running as a Windows service,
   DirectML.
 
@@ -86,6 +87,15 @@ it in the unpacked folder. To use the larger, more accurate `640m` model, downlo
 example with `scripts/fetch-models.sh`) and set `ModelPath: <path to 640m.onnx>` in a `config.yml`
 in the unpacked folder (the server reads it from the folder it is started in), or set the
 `BCS_ModelPath` environment variable.
+
+**With Beta Protection:**
+
+- GIFs only reach the server when **Animate GIFs** is on in Beta Protection's settings; otherwise
+  the extension handles them as video.
+- Beta Protection turns images it can read inside the page (from the page's own site, or served
+  with CORS headers) into a still JPEG before sending them, so animations among those arrive as one
+  frame. Images from other sites, which is most of them, arrive as they are, and animations are
+  censored frame by frame.
 
 On macOS the downloaded files are quarantined; clear that with
 `xattr -dr com.apple.quarantine <unpacked folder>`. Intel Macs aren't covered, because ONNX Runtime
