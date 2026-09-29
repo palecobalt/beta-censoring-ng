@@ -12,6 +12,11 @@ using MediatR;
 using Microsoft.AspNetCore.Http.Json;
 using System.Runtime.InteropServices;
 
+// a Windows service starts in C:\Windows\System32: read config.yml (and relative paths in it) from the server's folder
+if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService()) {
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 // builder.WebHost.AdvertiseServer();
 
