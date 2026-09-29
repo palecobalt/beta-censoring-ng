@@ -51,11 +51,13 @@ barefoot runners):
 - **Speed (model only, per image):** v2 0.3–4.5 s, v3 320n 40–90 ms, v3 640m 330–700 ms.
 - **End to end** through the REST API and the SignalR hub Beta Protection uses, with optimization
   mode Normal and None: censoring lands on the right regions.
-- **Also tested:** the Linux release zip, the Windows zip on Windows 11, the Docker images (CPU,
-  and CUDA on a GeForce card), and Beta Protection 0.2.10 in Chromium 153 (photos, stickers,
-  animated GIF and WebP).
-- **Not tested:** accuracy on explicit images, the macOS build, running as a Windows service,
-  DirectML.
+- **Also tested with v0.3.0:** a Linux build, the Docker stack on a CPU, and Beta Protection 0.2.10
+  in Chromium 153 (photos, stickers, animated GIF and WebP, and a web page trying to use the
+  server).
+- **Tested with v0.2.0 only:** the Windows zip on Windows 11, and the GPU image with CUDA on a
+  GeForce card.
+- **Not tested:** accuracy on explicit images, the macOS build, running as a service (Windows or
+  systemd), DirectML.
 
 Observations from the sample: all three models (v2, 320n, 640m) labelled some men's faces
 `FACE_F`. 320n and v2 flagged bikini areas as `EXPOSED_*` at 0.3–0.6; 640m labelled them covered.
@@ -264,8 +266,8 @@ plus ffmpeg for the pipeline tests), or inside the image with
 ## Network access
 
 The server has no authentication, so by default it only accepts connections from the computer it
-runs on, and browsers only let the extension and the server's own pages (status page, `/swagger`)
-use it, not other web pages. Before v0.3.0 it listened on every network interface and read local
+runs on, and of the requests that come from a browser it only accepts those from extensions and
+from its own pages (status page, `/swagger`), not from other web pages. Before v0.3.0 it listened on every network interface and read local
 files named in a request, so anyone on the network, or any web page open in the browser, could have
 it return image files from the disk.
 
@@ -279,8 +281,20 @@ Server:
 ```
 
 Only do that on a network you trust, and allow port 2382 in the computer's firewall. Other
-`Server:` settings: `Port` (2382), `AllowedOrigins` (web pages allowed to call the server, such as
-`["https://my-gallery.example"]`), `EnableDiscovery` (announce the server over mDNS).
+`Server:` settings:
+
+- `Port` (2382).
+- `AllowedOrigins`: web pages allowed to call the server, such as `["https://my-gallery.example"]`.
+- `AllowedExtensions`: ids of the browser extensions allowed to connect (from the browser's
+  extensions page). Empty, the default, allows every extension installed in the browser.
+- `AllowedHosts`: names the server is reached by. Needed only for a name with dots that doesn't end
+  in `.local`, such as `censor.example.org`; localhost, IP addresses, plain machine names and Docker
+  service names always work. Requests addressed to other names get 403, which keeps web pages from
+  reaching the server under a name of their own.
+- `EnableDiscovery`: announce the server over mDNS.
+
+The server downloads the image URLs it is given, so its clients can make it request addresses on
+your network. That is limited to clients that may use the server at all.
 
 ## Sticker packs
 
@@ -301,6 +315,8 @@ shapes: square, 3:2 and 2:1 wide, 2:3 and 1:2 tall, and around 4:1 for eyes. Res
 after changing a pack; the categories then appear in Beta Protection's sticker settings.
 
 ## Run as a service
+
+These instructions haven't been tested yet.
 
 - **Windows:** `sc.exe create BetaCensoring binPath= "C:\path\to\BetaCensor.Server.exe" start= auto`
   in an administrator prompt, then `sc.exe start BetaCensoring`. The server reads `config.yml`
@@ -332,8 +348,8 @@ curl -X POST http://localhost:2382/censoring/censorImage -H "Content-Type: appli
   `FACE_M`. There are none for other body parts, such as legs.
 - `POST /censoring/detect` and `/censoring/detectBatch` return the matches without censoring (see
   "What changed").
-- Errors: 400 for an unsupported image source, 502 when the image couldn't be downloaded, 422 when
-  it couldn't be read.
+- Errors: 400 for an unsupported image source, 403 for a request from a web page, 413 for an
+  image over 250 million pixels, 422 when it couldn't be read, 502 when it couldn't be downloaded.
 
 ## Run without Docker
 
