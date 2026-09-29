@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using BetaCensor.Web;
+using BetaCensor.Web.Components;
 using BetaCensor.Web.Providers;
 using CensorCore.Censoring;
 using Microsoft.Extensions.FileProviders;
@@ -55,6 +57,23 @@ public class StickerDbProviderTests : IDisposable {
         AddSticker("pack/with space.png", 100, 100);
 
         var stickers = Load().GetStickers();
+
+        Assert.Equal(4, stickers["pack"].Count());
+    }
+
+    [Fact]
+    public void LoadsSameNamedFilesFromSeveralPacks() {
+        foreach (var pack in new[] { "one", "two" }) {
+            using var zip = ZipFile.Open(Path.Combine(_root, $"{pack}.betapkg"), ZipArchiveMode.Create);
+            foreach (var entry in new[] { "pack/1.png", "pack/sub/2.png" }) {
+                using var img = new Image<Rgba32>(100, 100, new Rgba32(255, 0, 0));
+                using var stream = zip.CreateEntry(entry).Open();
+                img.SaveAsPng(stream);
+            }
+        }
+        var packs = new ArchiveProviderComponent().GetFileProvider(_root)!;
+
+        var stickers = new StickerDbProvider(new StickerOptions(), null, new[] { packs }, NullLogger<StickerDbProvider>.Instance).GetStickers();
 
         Assert.Equal(4, stickers["pack"].Count());
     }

@@ -20,7 +20,7 @@ public class ArchiveProviderComponent : IStoreComponent {
         }
         if (localPackages.Any()) {
             var providers = localPackages.Select(lp => new ZipArchiveFileProvider(lp)).ToArray();
-            return new NestedFilesProvider(new CompositeFileProvider(providers), (s, dir) => string.Join('/', new[] {s, dir.Name}));
+            return new NestedFilesProvider(new ConcatFileProvider(providers), (s, dir) => string.Join('/', new[] {s, dir.Name}));
         }
         return null;
     }
