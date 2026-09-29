@@ -181,7 +181,9 @@ namespace CensorCore
         }
 
         public Task<ImageData> LoadImageData(byte[] contents) {
-            var img = Image.Load<Rgba32>(contents);
+            ImageLimits.Check(contents);
+            // only the first frame is used
+            var img = Image.Load<Rgba32>(new SixLabors.ImageSharp.Formats.DecoderOptions { MaxFrames = 1 }, contents);
             var format = img.Metadata.DecodedImageFormat!;
             var frameCount = img.Frames.Count;
             for (int i = 1; i < frameCount; i++)

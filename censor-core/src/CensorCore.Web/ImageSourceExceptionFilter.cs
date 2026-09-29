@@ -26,6 +26,13 @@ public class ImageSourceExceptionFilter : ExceptionFilterAttribute
                 Detail = context.Exception.Message
             }) { StatusCode = StatusCodes.Status502BadGateway };
             context.ExceptionHandled = true;
+        } else if (context.Exception is ImageTooLargeException) {
+            context.Result = new ObjectResult(new ProblemDetails {
+                Status = StatusCodes.Status413PayloadTooLarge,
+                Title = "Image too large",
+                Detail = context.Exception.Message
+            }) { StatusCode = StatusCodes.Status413PayloadTooLarge };
+            context.ExceptionHandled = true;
         } else if (context.Exception is SixLabors.ImageSharp.ImageFormatException) {
             context.Result = new UnprocessableEntityObjectResult(new ProblemDetails {
                 Status = StatusCodes.Status422UnprocessableEntity,

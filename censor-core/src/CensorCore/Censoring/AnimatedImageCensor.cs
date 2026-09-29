@@ -31,9 +31,14 @@ public class AnimatedImageCensor {
         if (format == null || (_options.CensorAnimatedImages ?? _options.CensorAnimatedGifs ?? true) == false) {
             return null;
         }
+        var info = ImageLimits.Check(data);
+        var frameCount = info.FrameMetadataCollection.Count;
+        if (frameCount < 2 || frameCount > (_options.AnimationMaxFrames ?? 500)
+            || (long)info.Width * info.Height * frameCount > ImageLimits.MaxAnimationPixels) {
+            return null;
+        }
         using var source = Image.Load<Rgba32>(data);
-        var frameCount = source.Frames.Count;
-        if (frameCount < 2 || frameCount > (_options.AnimationMaxFrames ?? 500)) {
+        if (source.Frames.Count != frameCount) {
             return null;
         }
         var delaysMs = format == AnimationFormat.Gif
