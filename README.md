@@ -51,9 +51,8 @@ barefoot runners):
 - **Speed (model only, per image):** v2 0.3–4.5 s, v3 320n 40–90 ms, v3 640m 330–700 ms.
 - **End to end** through the REST API and the SignalR hub Beta Protection uses, with optimization
   mode Normal and None: censoring lands on the right regions.
-- **Also tested with v0.3.0:** a Linux build, the Docker stack on a CPU, and Beta Protection 0.2.10
-  in Chromium 153 (photos, stickers, animated GIF and WebP, and a web page trying to use the
-  server).
+- **Also tested with v0.3.0:** a Linux build, the Docker stack on a CPU, and Beta Protection in a
+  browser (photos, stickers, animated GIF and WebP, and a web page trying to use the server).
 - **Tested with v0.2.0 only:** the Windows zip on Windows 11, and the GPU image with CUDA on a
   GeForce card.
 - **Not tested:** accuracy on explicit images, the macOS build, running as a service (Windows or
