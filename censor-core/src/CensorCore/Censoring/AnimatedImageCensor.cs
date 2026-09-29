@@ -54,6 +54,8 @@ public class AnimatedImageCensor {
         var detectionTime = timer.Elapsed;
 
         var censoredFrames = new Image<Rgba32>[frameCount];
+        // the same sticker or caption for an area in every frame
+        AnimationChoices.Begin();
         try {
             await Parallel.ForEachAsync(Enumerable.Range(0, frameCount), parallelism, async (index, _) => {
                 var (before, after) = NearestDetectionFrames(detectionFrames, index);

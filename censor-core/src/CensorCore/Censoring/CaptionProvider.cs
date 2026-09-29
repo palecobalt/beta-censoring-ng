@@ -25,7 +25,8 @@ namespace CensorCore.Censoring {
             float boxRatio = (float)result.Box.Width / result.Box.Height;
             var opts = method.GetCaptionOptions("caption");
             var categories = opts.Categories;
-            var caption = await _assetStore.GetRandomCaption(categories?.Random());
+            var caption = await AnimationChoices.Choose($"caption|{result.Label}|{string.Join(';', categories ?? new List<string>())}",
+                () => _assetStore.GetRandomCaption(categories?.Random()));
             var cropRect = result.Box.ToRectangle();
 
             if (opts.PreferBox) {
