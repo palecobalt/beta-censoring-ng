@@ -9,8 +9,12 @@ Server:
   # Port: 2382
   # ListenAddress: localhost  # only this computer can connect; "*" lets other machines on your network in.
   #                           # The server has no authentication: anyone who can reach the port can use it.
-  # AllowedOrigins: []        # web pages allowed to call the server (browser extensions always are), e.g.
-  #                           # ["https://my-gallery.example"]; "*" allows any page, which is unsafe
+  # AllowedOrigins: []        # web pages allowed to call the server, e.g. ["https://my-gallery.example"];
+  #                           # "*" allows any page, which is unsafe
+  # AllowedExtensions: []     # browser extensions allowed to call the server, by id (from the browser's
+  #                           # extensions page); empty allows every extension
+  # AllowedHosts: []          # names the server is reached by, if not localhost, an IP address, a name without
+  #                           # dots or a .local name, e.g. ["censor.example.org"]
   # EnableDiscovery: false    # announce the server on your network over mDNS (with a ListenAddress other than localhost)
 
 # v3 defaults shown; lower values censor more readily

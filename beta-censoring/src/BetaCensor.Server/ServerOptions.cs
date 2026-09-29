@@ -22,6 +22,10 @@ namespace BetaCensor.Server
         public int Port {get;set;} = 2382;
         // web page origins allowed to call the server, besides browser extensions and its own pages; "*" allows any
         public List<string> AllowedOrigins {get;set;} = new();
+        // browser extensions allowed to call the server, by extension id; empty allows every extension
+        public List<string> AllowedExtensions {get;set;} = new();
+        // host names the server may be addressed by, besides localhost, IP addresses, names without dots and .local names
+        public List<string> AllowedHosts {get;set;} = new();
         // announce the server on the local network over mDNS (only useful with a ListenAddress other than localhost)
         public bool EnableDiscovery {get;set;} = false;
     }

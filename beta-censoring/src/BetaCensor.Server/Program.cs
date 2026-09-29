@@ -157,11 +157,18 @@ try {
     Environment.Exit(1);
 }
 
-var originPolicy = new RequestOriginPolicy(serverOpts.AllowedOrigins);
+var originPolicy = new RequestOriginPolicy(serverOpts.AllowedOrigins, serverOpts.AllowedHosts, serverOpts.AllowedExtensions);
 app.Use(async (context, next) => {
-    var origin = context.Request.Headers.Origin.ToString();
-    if (!originPolicy.IsAllowed(origin, context.Request.Scheme, context.Request.Host.Value ?? string.Empty)) {
-        app.Logger.LogWarning("Refused a request from origin {Origin}; add it to Server:AllowedOrigins to allow it", origin);
+    var headers = context.Request.Headers;
+    var origin = headers.Origin.ToString();
+    var host = context.Request.Host.Value ?? string.Empty;
+    if (!originPolicy.IsAllowed(origin, context.Request.Scheme, host, headers["Sec-Fetch-Site"].ToString(), headers.Referer.ToString())) {
+        if (!originPolicy.IsKnownHost(host)) {
+            app.Logger.LogWarning("Refused a request addressed to {Host}; add the name to Server:AllowedHosts to allow it", host);
+        } else {
+            app.Logger.LogWarning("Refused a request from the web page {Origin}; add it to Server:AllowedOrigins (or the extension's id to Server:AllowedExtensions) to allow it",
+                string.IsNullOrEmpty(origin) ? headers.Referer.ToString() : origin);
+        }
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return;
     }
