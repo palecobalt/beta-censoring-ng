@@ -28,11 +28,15 @@ namespace CensorCore.ModelLoader
         /// </summary>
         public static async Task<(string FileName, byte[] ModelData)> DownloadDefaultModel() {
             var data = await DownloadAsset($"https://api.github.com/repos/{DefaultRepository}/releases/assets/{DefaultModelAssetId}");
+            VerifyDefaultModel(data);
+            return (DefaultModelName, data);
+        }
+
+        public static void VerifyDefaultModel(byte[] data) {
             var hash = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
             if (hash != DefaultModelSha256) {
-                throw new InvalidDataException($"the downloaded {DefaultModelName} has SHA-256 {hash}, expected {DefaultModelSha256}");
+                throw new ModelChecksumException($"the downloaded {DefaultModelName} has SHA-256 {hash}, expected {DefaultModelSha256}");
             }
-            return (DefaultModelName, data);
         }
 
         public async Task<(string FileName, byte[] ModelData)?> DownloadModel(bool getClassifier = false, bool preferBase = false) {
@@ -74,6 +78,13 @@ namespace CensorCore.ModelLoader
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
         }
+    }
+
+    /// <summary>
+    /// The downloaded model isn't the expected file. Nothing else is downloaded in its place.
+    /// </summary>
+    public class ModelChecksumException : Exception {
+        public ModelChecksumException(string message) : base(message) { }
     }
 
     public static class AssetExtensions {

@@ -63,11 +63,17 @@ public class ModelLoader {
         if (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == RepositoryDownloadClient.DefaultRepository) {
             try {
                 model = await RepositoryDownloadClient.DownloadDefaultModel();
-            } catch (Exception e) {
+            } catch (Exception e) when (e is not ModelChecksumException) {
                 Console.WriteLine($"WARN: downloading {RepositoryDownloadClient.DefaultModelName} failed ({e.Message}), searching the releases instead");
             }
         }
-        model ??= await client.DownloadModel(_options.GetClassifier, _options.PreferBaseModel);
+        if (model == null) {
+            model = await client.DownloadModel(_options.GetClassifier, _options.PreferBaseModel);
+            if (model != null) {
+                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(model.Value.ModelData)).ToLowerInvariant();
+                Console.WriteLine($"WARN: using {model.Value.FileName} from the newest release of {_options.RepositorySlug}, which has no known checksum (SHA-256 {hash})");
+            }
+        }
         if (model != null) {
             Source = $"a download of {model.Value.FileName}";
         }
