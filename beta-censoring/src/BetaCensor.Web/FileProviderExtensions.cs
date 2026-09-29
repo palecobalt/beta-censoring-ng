@@ -29,7 +29,7 @@ public static class FileProviderExtensions {
         }
 
         foreach (var d in contents.Where(s => s.IsDirectory)) {
-            var nested = DirSearch(provider, d);
+            var nested = DirSearch(provider, $"{path}/{d.Name}");
             foreach (var nestedResult in nested) {
                 yield return nestedResult;
             }

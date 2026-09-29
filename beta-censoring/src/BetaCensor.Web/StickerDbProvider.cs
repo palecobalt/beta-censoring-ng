@@ -20,8 +20,7 @@ public class StickerDbProvider : IStickerProvider {
         _captions = LoadCaptions(captions) ?? _defaultCaptions;
         _mode = _options?.StartupMode ?? StartupMode.Normal;
         var categoryProviders = providers.Where(p => p is CategoryProvider).Cast<CategoryProvider>().ToList();
-        var provider = new CompositeFileProvider(providers);
-        LoadStickers(provider, categoryProviders);
+        LoadStickers(providers.ToList(), categoryProviders);
     }
 
     private List<string>? LoadCaptions(CaptionOptions? options) {
@@ -120,24 +119,27 @@ public class StickerDbProvider : IStickerProvider {
         return providedCats.Concat(availableCats).Distinct();
     }
 
-    private void LoadStickers(IFileProvider contentProvider, IEnumerable<CategoryProvider> categoryProviders) {
-        var cats = GetCategories(contentProvider, categoryProviders).ToList();
-        var images = GetProviderImages(cats, contentProvider);
+    private void LoadStickers(List<IFileProvider> providers, IEnumerable<CategoryProvider> categoryProviders) {
+        var cats = GetCategories(new CompositeFileProvider(providers), categoryProviders).ToList();
+        var images = GetProviderImages(cats, providers);
         // var collection = _db.GetCollection<StickerRecord>("stickers");
         var records = images.SelectMany(img => img.Value.Select(i => new StickerRecord(img.Key, i.Name)));
 
         foreach (var category in images) {
+            // subfolders are flattened into the category, so file names alone can repeat
+            var index = 0;
             foreach (var image in category.Value) {
                 try {
                     using var read = image.CreateReadStream();
                     var record = new StickerRecord(category.Key, image.Name);
+                    var id = $"$/{category.Key}/{index++}-{image.Name}";
                     if (_mode == StartupMode.Hybrid) {
-                        var dbCatFile = _db.FileStorage.Upload($"$/{category.Key}/{image.Name}-{image.LastModified.Millisecond}", image.Name, read);
+                        var dbCatFile = _db.FileStorage.Upload(id, image.Name, read);
                     }
                     else {
                         var img = SixLabors.ImageSharp.Image.Identify(read);
                         var format = img.Metadata.DecodedImageFormat!;
-                        decimal srcRatio = img.Width / img.Height;
+                        decimal srcRatio = (decimal)img.Width / img.Height;
                         var meta = new BsonDocument();
                         meta["aspectRatio"] = srcRatio;
                         meta["width"] = img.Width;
@@ -146,7 +148,7 @@ public class StickerDbProvider : IStickerProvider {
                         meta["extension"] = format.FileExtensions.First();
                         read.Dispose();
                         using var readFile = image.CreateReadStream();
-                        var dbCatFile = _db.FileStorage.Upload($"$/{category.Key}/{image.Name}-{image.LastModified.Second}", image.Name, readFile, meta);
+                        var dbCatFile = _db.FileStorage.Upload(id, image.Name, readFile, meta);
                     }
                 } catch {
                     _logger.LogWarning($"Failed to load file into stickers DB: {image.Name} ({(image.PhysicalPath ?? "unknown")}");
@@ -156,18 +158,20 @@ public class StickerDbProvider : IStickerProvider {
         }
     }
 
-    private Dictionary<string, List<IFileInfo>> GetProviderImages(List<string> categories, IFileProvider mergedProvider) {
+    // each provider on its own: a CompositeFileProvider lists only one file per name, and subfolders are flattened
+    private Dictionary<string, List<IFileInfo>> GetProviderImages(List<string> categories, List<IFileProvider> providers) {
         if (categories is not null && categories.Any()) {
             var results = new Dictionary<string, List<IFileInfo>>();
             foreach (var category in categories) {
-                var catResults = mergedProvider.GetDirectoryContents(category).ToList();
-                var nestedFiles = new List<IFileInfo>();
-                foreach (var dir in catResults.Where(s => s.IsDirectory && s.Exists)) {
-                    nestedFiles.AddRange(FileProviderExtensions.DirSearch(mergedProvider, dir));
+                var files = new List<IFileInfo>();
+                foreach (var provider in providers) {
+                    var catResults = provider.GetDirectoryContents(category).ToList();
+                    files.AddRange(catResults.Where(f => !f.IsDirectory && f.Exists));
+                    foreach (var dir in catResults.Where(s => s.IsDirectory && s.Exists)) {
+                        files.AddRange(provider.DirSearch($"{category}/{dir.Name}"));
+                    }
                 }
-                var nest = nestedFiles.ToList();
-                catResults.Where(f => !f.IsDirectory && f.Exists).Concat(nestedFiles).Where(fi => fi != null && fi.Exists);
-                results.Add(category, catResults);
+                results.Add(category, files);
             }
             // var candidates = results.Where(fi => fi is not null && fi.Exists);
             return results;

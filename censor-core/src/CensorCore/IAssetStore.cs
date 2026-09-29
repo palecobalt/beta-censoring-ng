@@ -56,7 +56,7 @@ namespace CensorCore {
             var allImages = allFiles.Select<string, (string FilePath, ImageInfo Image, IImageFormat Format)>(fi => { var info = Image.Identify(fi); return (FilePath: fi, Image: info, Format: info.Metadata.DecodedImageFormat!); });
             var ratioImages = allImages.Where(i =>
             {
-                var iRatio = i.Image.Width / i.Image.Height;
+                var iRatio = (float)i.Image.Width / i.Image.Height;
                 return ratio == null ? true : CloseEnough(iRatio, ratio.Value);
             });
             if (ratioImages.Any())
