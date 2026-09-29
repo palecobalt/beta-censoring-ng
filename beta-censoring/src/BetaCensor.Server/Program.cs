@@ -33,7 +33,8 @@ var serverOpts = builder.Configuration.GetServerOptions() ?? new ServerOptions()
 var listenUrl = serverOpts.GetListenUrl();
 builder.WebHost.UseUrls(listenUrl);
 if (!serverOpts.IsLocalOnly()) {
-    Console.WriteLine($"WARN: listening on {listenUrl}: anyone who can reach this port can use the server, it has no authentication");
+    Console.WriteLine($"WARN: listening on {listenUrl}: anyone who can reach this port can use the server, it has no authentication"
+        + " (in Docker, the published ports decide who can reach it)");
 }
 
 builder.Host.UseSystemd();
