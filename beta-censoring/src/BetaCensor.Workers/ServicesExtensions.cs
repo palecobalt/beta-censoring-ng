@@ -56,6 +56,7 @@ namespace BetaCensor.Workers {
             services.AddSingleton<ICensorTypeProvider, CaptionProvider>();
             services.AddSingleton<ICensoringProvider, ImageSharpCensoringProvider>();
             services.AddSingleton<AnimatedImageCensor>();
+            services.AddSingleton<IResultsTransformer, FaceLabelResolver>();
             services.AddSingleton<IResultsTransformer, CensorScaleTransformer>();
             // before IntersectingMatchMerger, which drops lower-confidence overlapping matches instead of merging them
             services.AddSingleton<IResultsTransformer, OverlapMerger>();
