@@ -116,17 +116,27 @@ no longer publishes macOS x64 builds; use Docker there.
 
 ## Run with Docker
 
+Ready-made images are on GitHub's registry, built by the release workflow from the tagged
+sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with both models) and
+`ghcr.io/palecobalt/beta-censoring-ng-video` (the video service); both for x86-64 Linux, CPU only.
+Download [`docker-compose.yml`](docker-compose.yml) into a folder and run:
+
 ```bash
-scripts/fetch-models.sh
-docker compose up -d --build
+docker compose up -d
 ```
+
+This also starts the censoring proxy (see below). `VERSION=v0.4.0` in a `.env` file pins a release;
+the default is `latest`. To build the images from these sources instead, run
+`scripts/fetch-models.sh` once, then
+`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 Then in Beta Protection's settings set **Backend Host** to `http://localhost:2382`, select
 **Beta Censoring**, and click **Save and Reconnect**. `docker-compose.yml` publishes the server
 (and the video service) on `127.0.0.1` only; to reach it from other machines, change the port to
 `"2382:2382"` (see "Network access").
 
-- Model: `BCS_ModelPath=/app/models/640m.onnx` (default) or `/app/models/320n.onnx`.
+- Model: `BCS_ModelPath=/app/models/640m.onnx` (default) or `/app/models/320n.onnx`; both are in
+  the image.
 - Workers: `BCS_Server__WorkerCount` (about half the host's cores).
 - Other settings: copy `config.example.yml` to `config.yml` and mount it at `/app/config.yml`.
   Environment variables override the file.
