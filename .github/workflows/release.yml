@@ -60,7 +60,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
             --title "$GITHUB_REF_NAME" --notes "Draft: release notes to follow." *.zip SHA256SUMS
 
-  # CPU images for docker-compose.yml: the server (with both models) and the video service
+  # CPU images for docker-compose.yml: the server (with both models), the video service and the proxy
   images:
     runs-on: ubuntu-latest
     steps:
@@ -90,3 +90,11 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/video-censor:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/video-censor:latest
+      - name: Build and push the proxy image
+        uses: docker/build-push-action@v6
+        with:
+          context: proxy
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/censor-proxy:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/censor-proxy:latest

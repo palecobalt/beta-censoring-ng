@@ -117,9 +117,9 @@ no longer publishes macOS x64 builds; use Docker there.
 ## Run with Docker
 
 Ready-made images are on GitHub's registry, built by the release workflow from the tagged
-sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with both models) and
-`ghcr.io/palecobalt/video-censor` (the video service, used by the proxy); both for x86-64 Linux,
-CPU only.
+sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with both models),
+`ghcr.io/palecobalt/censor-proxy` (the proxy) and `ghcr.io/palecobalt/video-censor` (the video
+service, used by the proxy); all for x86-64 Linux, CPU only.
 Download [`docker-compose.yml`](docker-compose.yml) into a folder and run:
 
 ```bash
@@ -199,8 +199,10 @@ proxy has to decrypt traffic with its own certificate authority, and the browser
 3. Settings → Privacy & Security → Certificates → View Certificates → Authorities → Import, and
    tick "Trust this CA to identify websites".
 
-**What gets censored** is set in `proxy/censor-options.json` (class name → `censorType` and
-`level`). The file is reloaded automatically when it changes. Censor types: `blur`, `pixelate`,
+**What gets censored** is set in `censor-options.json` (class name → `censorType` and `level`;
+`proxy/censor-options.json` has the defaults). With the published image, copy the file next to
+`docker-compose.yml` and enable the mount under `censor-proxy` in it. The file is reloaded
+automatically when it changes. Censor types: `blur`, `pixelate`,
 `blackbars`, `sticker:<category>`, `caption`. Classes: see "API".
 
 **Merging boxes:** set `MergeOverlapping: true` under `CensorOptions` in `config.yml` (then

@@ -25,7 +25,7 @@ services:
 
   # HTTP(S) proxy that censors images on the way to the browser (see README)
   censor-proxy:
-    image: mitmproxy/mitmproxy:12.2.3
+    image: ghcr.io/palecobalt/censor-proxy:${VERSION:-latest}
     container_name: censor-proxy
     # flow_detail=0 and termlog_verbosity=warn keep the log to the add-on's own warnings
     command: mitmdump --listen-port 8080 --set flow_detail=0 --set termlog_verbosity=warn -s /addon/censor_proxy.py
@@ -40,9 +40,10 @@ services:
       # "block" or "pass" for video that can't be censored (adaptive streams, long clips)
       VIDEO_POLICY: block
     volumes:
-      - ./proxy:/addon:ro
       # keeps the proxy's certificate authority across restarts
       - mitmproxy-ca:/home/mitmproxy/.mitmproxy
+      # your own censor options, reloaded when the file changes (a copy of proxy/censor-options.json):
+      # - ./censor-options.json:/addon/censor-options.json:ro
     depends_on:
       - beta-censoring
       - video-censor

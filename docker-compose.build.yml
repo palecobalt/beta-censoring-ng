@@ -7,3 +7,5 @@ services:
     build: .
   video-censor:
     build: ./video
+  censor-proxy:
+    build: ./proxy
