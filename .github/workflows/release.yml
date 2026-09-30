@@ -88,5 +88,5 @@ jobs:
           context: video
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-video:${{ github.ref_name }}
-            ghcr.io/${{ github.repository }}-video:latest
+            ghcr.io/${{ github.repository_owner }}/video-censor:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/video-censor:latest

@@ -51,7 +51,7 @@ services:
 
   # re-encodes short video clips with censoring drawn on (see README)
   video-censor:
-    image: ghcr.io/palecobalt/beta-censoring-ng-video:${VERSION:-latest}
+    image: ghcr.io/palecobalt/video-censor:${VERSION:-latest}
     container_name: video-censor
     ports:
       - "127.0.0.1:${VIDEO_CENSOR_PORT:-2383}:2383"

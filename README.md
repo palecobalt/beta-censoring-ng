@@ -118,14 +118,17 @@ no longer publishes macOS x64 builds; use Docker there.
 
 Ready-made images are on GitHub's registry, built by the release workflow from the tagged
 sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with both models) and
-`ghcr.io/palecobalt/beta-censoring-ng-video` (the video service); both for x86-64 Linux, CPU only.
+`ghcr.io/palecobalt/video-censor` (the video service, used by the proxy); both for x86-64 Linux,
+CPU only.
 Download [`docker-compose.yml`](docker-compose.yml) into a folder and run:
 
 ```bash
 docker compose up -d
 ```
 
-This also starts the censoring proxy (see below). `VERSION=v0.4.0` in a `.env` file pins a release;
+For Beta Protection only the server is needed: `docker compose up -d beta-censoring`. Without a
+service name, this also starts the censoring proxy and the video service (see below), which are
+for browsers without the extension. `VERSION=v0.4.0` in a `.env` file pins a release;
 the default is `latest`. To build the images from these sources instead, run
 `scripts/fetch-models.sh` once, then
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
@@ -285,7 +288,7 @@ Settings (environment variables on `video-censor`):
 
 Tests: `cd video && python3 -m unittest discover -s tests` (needs numpy and opencv-python-headless,
 plus ffmpeg for the pipeline tests), or inside the image with
-`docker run --rm --entrypoint python3 ghcr.io/palecobalt/beta-censoring-ng-video -m unittest discover -s tests`.
+`docker run --rm --entrypoint python3 ghcr.io/palecobalt/video-censor -m unittest discover -s tests`.
 
 ## Network access
 
