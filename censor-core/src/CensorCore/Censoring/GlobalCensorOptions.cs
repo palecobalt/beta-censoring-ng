@@ -5,7 +5,16 @@ namespace CensorCore.Censoring
         public bool? AllowTransformers { get;set; } = true;
         public float? RelativeCensorScale { get; set; } = 1F;
         public float? PaddingScale { get; set; } = 1F;
+        /// <summary>
+        /// Old form of <see cref="StickerBackground"/>: true means pixels.
+        /// </summary>
         public bool? ForcePixelBackground { get; set; } = false;
+
+        /// <summary>
+        /// What is drawn under stickers: "blur" (default), "pixels" or "none". A request's own useBlur / usePixels
+        /// parameters override it.
+        /// </summary>
+        public string? StickerBackground { get; set; }
 
         /// <summary>
         /// Merges overlapping matches of any class into one box when they use the same censor type.
@@ -37,6 +46,16 @@ namespace CensorCore.Censoring
         /// Animations with more frames than this are censored as a still image (first frame only).
         /// </summary>
         public int? AnimationMaxFrames { get; set; } = 500;
+
+        /// <summary>
+        /// Images that decode to more than this many million pixels are refused (see <see cref="ImageLimits"/>).
+        /// </summary>
+        public int? MaxImageMegapixels { get; set; }
+
+        /// <summary>
+        /// Animations with more than this many million pixels over all frames are censored as a still image.
+        /// </summary>
+        public int? MaxAnimationMegapixels { get; set; }
 
         public Dictionary<string, float> ClassStrength {get;set;} = new Dictionary<string, float>();
         /// <summary>

@@ -31,13 +31,7 @@ namespace CensorCore.Censoring
             var padding = inputImage.GetPadding(_globalOpts);
             float boxRatio = (float)result.Box.Width / result.Box.Height;
             var options = method.GetOptions("sticker");
-            var defaultToBlur = _globalOpts.ForcePixelBackground.HasValue ? !_globalOpts.ForcePixelBackground.Value : true;
-            var useBlur = options.Parameters != null
-                ? options.Parameters.TryGetFirst("useBlur", out var optionObj) ? (bool.TryParse((string)optionObj, out var useBlurOption) && useBlurOption) : defaultToBlur
-                : defaultToBlur;
-            var usePixels = _globalOpts.ForcePixelBackground == true || ( options.Parameters != null
-                ? options.Parameters.TryGetFirst("usePixels", out var pixelOption) ? (bool.TryParse((string)pixelOption, out var usePixelOption) && usePixelOption) : false
-                : false );
+            var (useBlur, usePixels) = UseBlur(options);
             var sticker = await AnimationChoices.Choose($"sticker|{AnimationChoices.GetArea(result)}|{string.Join(';', options.Categories ?? new List<string>())}",
                 () => GetImageAsync(boxRatio, options.Categories));
             if (useBlur) {
@@ -97,14 +91,16 @@ namespace CensorCore.Censoring
 
         }
 
+        /// <summary>
+        /// What goes under the sticker: the configured background (blur unless set otherwise), or what the request's
+        /// useBlur / usePixels parameters say.
+        /// </summary>
         public (bool UseBlur, bool UsePixels) UseBlur((List<string>? Categories, Flurl.QueryParamCollection? Parameters) options) {
-            var defaultToBlur = _globalOpts.ForcePixelBackground.HasValue ? !_globalOpts.ForcePixelBackground.Value : true;
-            var useBlur = options.Parameters != null
-                ? options.Parameters.TryGetFirst("useBlur", out var optionObj) ? (bool.TryParse((string)optionObj, out var useBlurOption) && useBlurOption) : defaultToBlur
-                : defaultToBlur;
-            var usePixels = _globalOpts.ForcePixelBackground == true || ( options.Parameters != null
-                ? options.Parameters.TryGetFirst("usePixels", out var pixelOption) ? (bool.TryParse((string)pixelOption, out var usePixelOption) && usePixelOption) : false
-                : false );
+            var background = (_globalOpts.StickerBackground ?? (_globalOpts.ForcePixelBackground == true ? "pixels" : "blur")).Trim().ToLowerInvariant();
+            bool? requested(string name) =>
+                options.Parameters != null && options.Parameters.TryGetFirst(name, out var value) && bool.TryParse((string)value, out var flag) ? flag : null;
+            var useBlur = requested("useBlur") ?? (background == "blur");
+            var usePixels = requested("usePixels") ?? (background == "pixels");
             return (useBlur, usePixels);
         }
 

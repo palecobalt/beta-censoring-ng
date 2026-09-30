@@ -160,6 +160,8 @@ var app = builder.Build();
 // load the model now rather than at the first request, so a broken model file shows up at once
 try {
     app.Services.GetRequiredService<AIService>();
+    // reads the image limits from the configuration
+    app.Services.GetRequiredService<CensorCore.Censoring.GlobalCensorOptions>();
 } catch (Exception e) {
     Console.Error.WriteLine($"ERROR: could not load the model from {loader.Source}: {e.Message}");
     Console.Error.WriteLine($"The file may be incomplete or not an ONNX model. {modelHelp}");

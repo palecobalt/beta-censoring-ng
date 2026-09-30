@@ -32,6 +32,7 @@ public static class ServerConfigurationExtensions {
             defaults.PaddingScale = matchOpts.PaddingScale ?? defaults.PaddingScale;
             defaults.ClassStrength = matchOpts.ClassStrength ?? new Dictionary<string, float>();
             defaults.ForcePixelBackground = matchOpts.ForcePixelBackground ?? false;
+            defaults.StickerBackground = matchOpts.StickerBackground;
             defaults.LayerModifier = (matchOpts.LayerModifier != null && matchOpts.LayerModifier.Any()) ? matchOpts.LayerModifier : new Dictionary<string, int> {["EYES_F"] = 10, ["MOUTH_F"] = 10};
             defaults.MergeOverlapping = matchOpts.MergeOverlapping ?? false;
             defaults.MergeDistance = matchOpts.MergeDistance ?? 0F;
@@ -39,6 +40,12 @@ public static class ServerConfigurationExtensions {
             defaults.CensorAnimatedGifs = matchOpts.CensorAnimatedGifs ?? true;
             defaults.AnimationDetectionIntervalMs = matchOpts.AnimationDetectionIntervalMs ?? 200;
             defaults.AnimationMaxFrames = matchOpts.AnimationMaxFrames ?? 500;
+            if (matchOpts.MaxImageMegapixels is > 0) {
+                ImageLimits.MaxPixels = matchOpts.MaxImageMegapixels.Value * 1_000_000L;
+            }
+            if (matchOpts.MaxAnimationMegapixels is > 0) {
+                ImageLimits.MaxAnimationPixels = matchOpts.MaxAnimationMegapixels.Value * 1_000_000L;
+            }
         }
         return defaults;
     }
