@@ -137,8 +137,11 @@ Then in Beta Protection's settings set **Backend Host** to `http://localhost:238
 `docker-compose.gpu.yml` switches the server to a CUDA build (`Dockerfile.gpu`):
 
 ```bash
+scripts/fetch-models.sh
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
+
+The GPU images aren't published yet, so this builds them from the sources.
 
 or put `COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml` in a `.env` file so plain
 `docker compose` commands use it.
@@ -272,7 +275,7 @@ Settings (environment variables on `video-censor`):
 
 Tests: `cd video && python3 -m unittest discover -s tests` (needs numpy and opencv-python-headless,
 plus ffmpeg for the pipeline tests), or inside the image with
-`docker run --rm --entrypoint python3 video-censor -m unittest discover -s tests`.
+`docker run --rm --entrypoint python3 ghcr.io/palecobalt/beta-censoring-ng-video -m unittest discover -s tests`.
 
 ## Network access
 
@@ -387,7 +390,7 @@ the Docker build does this. The censoring API works either way.
   [beta-censoring](https://github.com/silveredgold/beta-censoring) by silveredgold, GPL-3.0.
   Their commit histories are included unchanged apart from the move into subdirectories.
 - [NudeNet](https://github.com/notAI-tech/NudeNet) by notAI-tech (AGPL-3.0) provides the detection
-  models, which are downloaded separately.
+  models, which the server downloads at its first start; the Docker images include them.
 - [ImageSharp](https://github.com/SixLabors/ImageSharp) and ImageSharp.Drawing by Six Labors are used under
   the Apache License 2.0, as granted by the Six Labors Split License for open source software.
 

@@ -1,0 +1,9 @@
+# Build override for docker-compose.yml: builds the server and the video service from these sources
+# instead of pulling the published images.
+#   scripts/fetch-models.sh
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  beta-censoring:
+    build: .
+  video-censor:
+    build: ./video

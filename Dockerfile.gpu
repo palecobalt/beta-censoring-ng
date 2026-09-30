@@ -16,7 +16,8 @@ WORKDIR /src
 COPY censor-core/ censor-core/
 COPY beta-censoring/ beta-censoring/
 COPY --from=status-ui /src/wwwroot/dist beta-censoring/src/BetaCensor.Web.Status/wwwroot/dist
-RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -p:OnnxRuntimeGpu=true -o /app
+ARG VERSION=v0.0.0-dev
+RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj -c Release -p:OnnxRuntimeGpu=true -p:Version=${VERSION#v} -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS dotnet-runtime
 
