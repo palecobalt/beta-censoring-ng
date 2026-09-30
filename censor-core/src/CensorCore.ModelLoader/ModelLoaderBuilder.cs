@@ -43,6 +43,20 @@ public class ModelLoaderBuilder {
         return this;
     }
 
+    /// <summary>The model to use and download (640m or 320n); an unknown name is an error.</summary>
+    public ModelLoaderBuilder UseModel(string? name) {
+        if (!string.IsNullOrWhiteSpace(name)) {
+            _opts.Model = KnownModels.Find(name) ?? throw new ArgumentException($"Unknown model '{name}'; the models are {string.Join(" and ", KnownModels.All.Select(m => m.Name))}");
+        }
+        return this;
+    }
+
+    /// <summary>Saves downloaded models in this folder (the temp folder when it can't be written).</summary>
+    public ModelLoaderBuilder DownloadTo(string directory) {
+        _opts.DownloadDirectory = directory;
+        return this;
+    }
+
     public ModelLoaderBuilder UseAlternateRepository(string repoSlug) {
         _opts.RepositorySlug = repoSlug;
         return this;

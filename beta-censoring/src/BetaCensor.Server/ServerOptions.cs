@@ -1,5 +1,8 @@
 namespace BetaCensor.Server
 {
+    /// <summary>The model file in use and where it came from.</summary>
+    public record ModelInfo(string Name, string Source);
+
     public class ServerOptions
     {
         public int WorkerCount {get;set;} = 2;

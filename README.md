@@ -26,9 +26,10 @@ Both upstream repositories are included with their full history, in `censor-core
   and `POST /censoring/detectBatch` (`{imageDataUrls: [...], censorOptions}`) return
   `{width, height, results: [{label, confidence, box}]}` without censoring. Boxes get the same
   scaling and merging as `censorImage` unless `transform: false` is sent.
-- **Model auto-download** fetches `320n.onnx` from NudeNet's `v3.4-weights` release and checks its
-  SHA-256 (it used to find nothing and abort with "Failed to retrieve AI model!"). When no model
-  can be found or loaded, the server says why and exits instead of failing on the first image.
+- **Model auto-download** fetches `640m.onnx` (or `320n.onnx` with `Model: 320n`) from NudeNet's
+  `v3.4-weights` release into the server's folder and checks its SHA-256 (it used to find nothing
+  and abort with "Failed to retrieve AI model!"). When no model can be found or loaded, the server
+  says why and exits instead of failing on the first image.
 - **Only local connections by default,** and web pages can't use the server; see "Network access".
 - **Animated GIFs and WebP images are censored frame by frame,** through the REST API and through
   the SignalR hub Beta Protection uses (see "With Beta Protection" for its part).
@@ -63,11 +64,20 @@ Observations from the sample: all three models (v2, 320n, 640m) labelled some me
 
 ## Models
 
-The NudeNet model weights are not part of this repository. `scripts/fetch-models.sh` downloads
-`320n.onnx` and `640m.onnx` from NudeNet's `v3.4-weights` release into `models/` and checks their
-SHA-256; the Docker build copies them from there. Without Docker, the server fetches `320n.onnx`
-itself at startup when it finds no model (the same file, also checked). NudeNet and its models are
-published by
+The NudeNet model weights are not part of this repository. NudeNet's
+[v3.4-weights release](https://github.com/notAI-tech/NudeNet/releases/tag/v3.4-weights) has two:
+
+| Model | Size | Per image on a CPU | Notes |
+|---|---|---|---|
+| `640m.onnx` (default) | 104 MB | 0.3–0.7 s | more accurate; told swimwear apart from exposed skin in the tests |
+| `320n.onnx` | 12 MB | 40–90 ms | for slow computers or image-heavy pages; misses more and over-censors swimwear |
+
+The server uses the model file it finds in its own folder, the folder it is started in, or the
+system temp folder (`640m` before `320n` before any other `.onnx` file), and downloads `640m.onnx`
+into its own folder when it finds none. `Model: 320n` (or `640m`) in `config.yml`, or the
+`BCS_Model` environment variable, makes it use and download that model only; `ModelPath` points at
+a specific file or folder. `scripts/fetch-models.sh` downloads both models into `models/` for the
+Docker build, and checks their SHA-256 as the server does. NudeNet and its models are published by
 [notAI-tech](https://github.com/notAI-tech/NudeNet) under the AGPL-3.0.
 
 ## Run from a release download
@@ -80,14 +90,16 @@ builds for Windows (x64), Linux (x64) and macOS (Apple Silicon); no .NET install
 3. In Beta Protection's settings set **Backend Host** to `http://localhost:2382`, select
    **Beta Censoring**, and click **Save and Reconnect**.
 
-At its first start the server downloads `320n.onnx` from NudeNet's releases and keeps it in the
-system temp folder (`.nudenet`). If that fails (no internet, or GitHub's limit of 60 requests an
-hour per IP address, which VPN addresses can reach), download `320n.onnx` from the
-[v3.4-weights release](https://github.com/notAI-tech/NudeNet/releases/tag/v3.4-weights) and put
-it in the unpacked folder. To use the larger, more accurate `640m` model, download it (for
-example with `scripts/fetch-models.sh`) and set `ModelPath: <path to 640m.onnx>` in a `config.yml`
-in the unpacked folder (the server reads it from the folder it is started in), or set the
-`BCS_ModelPath` environment variable.
+At its first start the server downloads the `640m` model (104 MB) from NudeNet's releases into
+the unpacked folder. If that fails (no internet, or GitHub's limit of 60 requests an hour per IP
+address, which VPN addresses can reach), download `640m.onnx` from the
+[v3.4-weights release](https://github.com/notAI-tech/NudeNet/releases/tag/v3.4-weights) yourself
+and put it in the unpacked folder. On a slow computer, or if pages with many images take too long,
+use the small `320n` model instead: put `Model: 320n` in a `config.yml` in the unpacked folder
+(the server reads it from the folder it is started in), or set the `BCS_Model` environment
+variable, and the server downloads that one. See "Models" for the differences. An install from
+before v0.4.0 keeps using its `320n` model until `Model: 640m` is set or the model file is
+deleted.
 
 **With Beta Protection:**
 

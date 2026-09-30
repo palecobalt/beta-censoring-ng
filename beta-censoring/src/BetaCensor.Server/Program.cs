@@ -50,17 +50,25 @@ builder.Logging.AddFilter("Microsoft.AspNetCore", level => level > LogLevel.Warn
 
 // Add services to the container.
 
-var loader = new ModelLoaderBuilder()
+// Model: 640m (default) or 320n, looked for and downloaded when missing. ModelPath: a specific .onnx file or a folder.
+var modelHelp = $"Download 640m.onnx or 320n.onnx from {KnownModels.ReleasePage}, put it in the server's folder, or set ModelPath to its location.";
+ModelLoader loader;
+try {
+    loader = new ModelLoaderBuilder()
         .AddDefaultPaths()
+        .UseModel(builder.Configuration["Model"])
+        .DownloadTo(AppContext.BaseDirectory)
         .SearchAssembly(System.Reflection.Assembly.GetEntryAssembly())
         .Build();
-// ModelPath can point at a specific .onnx file or a folder (e.g. BCS_ModelPath=/models/640m.onnx)
+} catch (ArgumentException e) {
+    Console.Error.WriteLine($"ERROR: {e.Message}");
+    Environment.Exit(1);
+    return;
+}
 var modelPath = builder.Configuration["ModelPath"];
 if (!string.IsNullOrWhiteSpace(modelPath) && !File.Exists(modelPath) && !Directory.Exists(modelPath)) {
     Console.WriteLine($"WARN: ModelPath '{modelPath}' does not exist, searching default locations instead");
 }
-var modelHelp = $"Download {RepositoryDownloadClient.DefaultModelName} (or the larger 640m.onnx) from {RepositoryDownloadClient.DefaultModelPage}, "
-    + "put it in the server's folder, or set ModelPath to its location.";
 byte[]? model = null;
 try {
     model = await loader.GetModel(modelPath);
@@ -72,6 +80,7 @@ if (model == null) {
     Environment.Exit(1);
 }
 Console.WriteLine($"Using the model from {loader.Source}");
+builder.Services.AddSingleton(new ModelInfo(Path.GetFileName(loader.Source ?? "model"), loader.Source ?? "unknown"));
 
 builder.Services.AddCensoring(model, serverOpts.UseGpu, serverOpts.GpuDeviceId, serverOpts.GpuMemoryLimitMB * 1024L * 1024L, serverOpts.GpuMaxConcurrentRuns);
 builder.Services.AddSingleton<CensorCore.Censoring.ICensoringMiddleware, BetaCensor.Core.ObfuscationMiddleware>();

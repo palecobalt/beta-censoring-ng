@@ -1,7 +1,9 @@
 # Copy to config.yml next to the server, or mount it at /app/config.yml in Docker.
 # Environment variables (BCS_ prefix, e.g. BCS_ModelPath) override these values.
 
-# ModelPath: /app/models/640m.onnx
+# Model: 640m               # 640m (default; more accurate) or 320n (faster, for slow computers): the model file to
+#                           # use, and to download into the server's folder when it isn't found
+# ModelPath: /app/models/640m.onnx   # a specific model file or folder instead
 
 Server:
   WorkerCount: 4            # about half your CPU cores

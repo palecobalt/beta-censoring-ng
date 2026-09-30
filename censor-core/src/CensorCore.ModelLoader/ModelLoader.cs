@@ -33,38 +33,58 @@ public class ModelLoader {
     public async Task<byte[]?> GetLocalModel(string? filePath) {
         if (filePath != null && File.Exists(filePath) && Path.GetExtension(filePath) == ".onnx") {
             Source = Path.GetFullPath(filePath);
-            return File.ReadAllBytes(filePath);
+            return await File.ReadAllBytesAsync(filePath);
         }
-        else if (GetModelInDirectory(filePath, _options) is var modelFile && modelFile != null) {
-            Source = modelFile.FullName;
-            return File.ReadAllBytes(modelFile.FullName);
+        var directories = new List<string>();
+        if (filePath != null && Directory.Exists(filePath)) {
+            directories.Add(filePath);
         }
-        else {
-            //filePath is null or invalid, time to start fishing.
-            
-            var local = _searchPaths.Select(p => GetModelInDirectory(p, _options)).FirstOrDefault(p => p != null);
-            if (local != null) {
-                Source = local.FullName;
-                return await File.ReadAllBytesAsync(local.FullName);
+        directories.AddRange(_searchPaths);
+        var local = FindModel(directories.Where(Directory.Exists).Distinct().Select(d => new DirectoryInfo(d)));
+        if (local != null) {
+            Source = local.FullName;
+            return await File.ReadAllBytesAsync(local.FullName);
+        }
+        // Check for an embedded model.
+        var embedded = GetModelResource(Assembly.GetEntryAssembly());
+        if (embedded != null) {
+            Source = "embedded resource";
+            return embedded;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Picks the model file to use from the .onnx files in the directories (earlier directories first): the
+    /// configured model only, or else the known models in order of preference, then any other by name.
+    /// </summary>
+    public FileInfo? FindModel(IEnumerable<DirectoryInfo> directories) {
+        var files = directories.SelectMany(d => d.GetFiles("*.onnx")).ToList();
+        if (_options.GetClassifier) {
+            return files.FirstOrDefault(f => f.Name.StartsWith("classifier_"));
+        }
+        if (_options.Model != null) {
+            return files.FirstOrDefault(f => f.Name.Equals(_options.Model.FileName, StringComparison.OrdinalIgnoreCase));
+        }
+        var candidates = files.Where(f => !f.Name.StartsWith("classifier_") && (_options.PreferBaseModel ? f.Name.Contains("_base_") : !f.Name.Contains("_base")));
+        foreach (var known in KnownModels.All) {
+            if (candidates.FirstOrDefault(f => f.Name.Equals(known.FileName, StringComparison.OrdinalIgnoreCase)) is { } file) {
+                return file;
             }
-            //it's getting dire. Check for an embedded model.
-            var embedded = GetModelResource(Assembly.GetEntryAssembly());
-            if (embedded != null) {
-                Source = "embedded resource";
-                return embedded;
-            }
-            return null;
         }
+        return candidates.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
     }
 
     public async Task<(string FileName, byte[] ModelData)?> DownloadModel(bool saveToSharedLocation = false) {
         var client = new RepositoryDownloadClient(_options.RepositorySlug);
         (string FileName, byte[] ModelData)? model = null;
-        if (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == RepositoryDownloadClient.DefaultRepository) {
+        var known = _options.Model ?? KnownModels.Default;
+        if (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == KnownModels.Repository) {
+            Console.WriteLine($"Downloading NudeNet's {known.FileName} ({known.Description.Split(',')[1].Trim()})...");
             try {
-                model = await RepositoryDownloadClient.DownloadDefaultModel();
+                model = await RepositoryDownloadClient.DownloadKnownModel(known);
             } catch (Exception e) when (e is not ModelChecksumException) {
-                Console.WriteLine($"WARN: downloading {RepositoryDownloadClient.DefaultModelName} failed ({e.Message}), searching the releases instead");
+                Console.WriteLine($"WARN: downloading {known.FileName} failed ({e.Message}), searching the releases instead");
             }
         }
         if (model == null) {
@@ -78,30 +98,24 @@ public class ModelLoader {
             Source = $"a download of {model.Value.FileName}";
         }
         if (model != null && saveToSharedLocation) {
-            try {
-                var tempPath = Path.Combine(Path.GetTempPath(), ".nudenet");
-                Directory.CreateDirectory(tempPath);
-                // written under another name first, so an interrupted write never leaves a partial model to be found later
-                var target = Path.Combine(tempPath, model.Value.FileName);
-                await File.WriteAllBytesAsync(target + ".part", model.Value.ModelData);
-                File.Move(target + ".part", target, overwrite: true);
-                Source = target;
-            } catch {
-                //ignored
+            foreach (var directory in new[] { _options.DownloadDirectory, Path.Combine(Path.GetTempPath(), ".nudenet") }) {
+                if (string.IsNullOrWhiteSpace(directory)) {
+                    continue;
+                }
+                try {
+                    Directory.CreateDirectory(directory);
+                    // written under another name first, so an interrupted write never leaves a partial model to be found later
+                    var target = Path.Combine(directory, model.Value.FileName);
+                    await File.WriteAllBytesAsync(target + ".part", model.Value.ModelData);
+                    File.Move(target + ".part", target, overwrite: true);
+                    Source = target;
+                    break;
+                } catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+                    Console.WriteLine($"WARN: could not save the model in {directory} ({e.Message})");
+                }
             }
         }
         return model;
-    }
-
-    private FileInfo? GetModelInDirectory(string? directoryPath, ModelLoaderOptions _options) {
-        if (directoryPath != null && Directory.Exists(directoryPath) && Directory.GetFiles(directoryPath).Where(f => Path.GetExtension(f) == ".onnx") is var modelFiles && modelFiles.Any()) {
-            //there's *A* model file here, check if it's good.
-            var candidate = _options.GetClassifier
-                ? modelFiles.FirstOrDefault(mf => mf.Name().StartsWith("classifier_"))
-                : modelFiles.FirstOrDefault(mf => _options.PreferBaseModel ? mf.Name().Contains("_base_") : !mf.Name().Contains("_base"));
-            return candidate == null ? null : new FileInfo(candidate);
-        }
-        return null;
     }
 
     private static byte[]? GetModelResource(Assembly? assembly = null) {
