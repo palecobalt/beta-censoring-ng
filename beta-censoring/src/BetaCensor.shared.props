@@ -3,6 +3,9 @@
         <DebugType>Embedded</DebugType>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <!-- shown on the status page and by /censoring/info; the release workflow passes the tag's version -->
+        <Version>0.4.0</Version>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     </PropertyGroup>
     <PropertyGroup>
         <Authors>silveredgold</Authors>

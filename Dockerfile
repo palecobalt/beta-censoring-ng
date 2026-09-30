@@ -6,7 +6,7 @@
 # Choose the model with BCS_ModelPath (/app/models/640m.onnx or /app/models/320n.onnx).
 
 # Status page front end (the embedded web UI at http://<host>:2382)
-FROM node:16 AS status-ui
+FROM node:22 AS status-ui
 WORKDIR /src/ClientApp
 COPY beta-censoring/src/BetaCensor.Web.Status/ClientApp/package.json beta-censoring/src/BetaCensor.Web.Status/ClientApp/package-lock.json ./
 RUN npm ci --no-audit --no-fund

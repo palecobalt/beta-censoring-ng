@@ -9,13 +9,16 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),
-            "#": "@silveredgold/beta-shared"
+            "#": "@silveredgold/beta-shared",
+            // the package's exports map names an .mjs file it doesn't ship
+            "@silveredgold/beta-shared-components": fileURLToPath(new URL("./node_modules/@silveredgold/beta-shared-components/lib/beta-shared-components.es.js", import.meta.url))
         },
     },
     build: {
         outDir: '../wwwroot/dist',
         emptyOutDir: true,
-        manifest: true,
+        // where _Layout.cshtml reads it (Vite 5+ would put it in .vite/)
+        manifest: 'manifest.json',
         rollupOptions: {
             input: {
                 main: './main.ts',

@@ -372,7 +372,7 @@ BCS_ModelPath=models/640m.onnx dotnet out/BetaCensor.Server.dll
 ```
 
 The status page at `http://localhost:2382` is empty unless its front end is built first
-(`npm ci && npm run build` in `beta-censoring/src/BetaCensor.Web.Status/ClientApp`, Node 16);
+(`npm ci && npm run build` in `beta-censoring/src/BetaCensor.Web.Status/ClientApp`, Node 22);
 the Docker build does this. The censoring API works either way.
 
 ## Notes

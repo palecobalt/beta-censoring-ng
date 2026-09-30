@@ -4,6 +4,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
+        <!-- shown by /censoring/info and the status page; the release workflow passes the tag's version -->
+        <Version>0.4.0</Version>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     </PropertyGroup>
     <PropertyGroup>
         <Authors>silveredgold</Authors>
