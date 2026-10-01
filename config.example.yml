@@ -2,7 +2,8 @@
 # Environment variables (BCS_ prefix, e.g. BCS_ModelPath) override these values.
 
 # Model: 640m               # 640m (default; more accurate) or 320n (faster, for slow computers): the model file to
-#                           # use, and to download into the server's folder when it isn't found
+#                           # use, and to download into the server's folder when it isn't found. Optional models
+#                           # from another publisher: hotscreen-n640, hotscreen-anime-s640 (see README, "Models")
 # ModelPath: /app/models/640m.onnx   # a specific model file or folder instead
 
 Server:

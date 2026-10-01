@@ -31,7 +31,7 @@ COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
 RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 WORKDIR /app
 COPY --from=build /app .
-COPY models/320n.onnx models/640m.onnx ./models/
+COPY models/320n.onnx models/640m.onnx models/hs-real-y11n-640-fp32.onnx ./models/
 ENV BCS_ModelPath=/app/models/640m.onnx \
     BCS_Server__ListenAddress=* \
     BCS_Server__UseGpu=true

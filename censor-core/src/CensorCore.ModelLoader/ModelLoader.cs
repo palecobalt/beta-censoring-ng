@@ -79,11 +79,13 @@ public class ModelLoader {
         var client = new RepositoryDownloadClient(_options.RepositorySlug);
         (string FileName, byte[] ModelData)? model = null;
         var known = _options.Model ?? KnownModels.Default;
-        if (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == KnownModels.Repository) {
-            Console.WriteLine($"Downloading NudeNet's {known.FileName} ({known.Description.Split(',')[1].Trim()})...");
+        // only NudeNet's models can also be found by searching its releases
+        var fromReleases = known.Publisher == "NudeNet";
+        if (!fromReleases || (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == KnownModels.Repository)) {
+            Console.WriteLine($"Downloading {known.Publisher}'s {known.FileName} ({known.Description.Split(',')[1].Trim()})...");
             try {
                 model = await RepositoryDownloadClient.DownloadKnownModel(known);
-            } catch (Exception e) when (e is not ModelChecksumException) {
+            } catch (Exception e) when (fromReleases && e is not ModelChecksumException) {
                 Console.WriteLine($"WARN: downloading {known.FileName} failed ({e.Message}), searching the releases instead");
             }
         }

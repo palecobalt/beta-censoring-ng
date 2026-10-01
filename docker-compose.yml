@@ -9,7 +9,7 @@ services:
       # only this computer can reach it; use "2382:2382" to let other machines on your network in (no authentication)
       - "127.0.0.1:2382:2382"
     environment:
-      # 640m is more accurate; 320n is roughly 5-8x faster
+      # 640m is more accurate; 320n is roughly 5-8x faster; hs-real-y11n-640-fp32 is the optional hotscreen model
       BCS_ModelPath: /app/models/640m.onnx
       # a reasonable starting point is half your CPU cores
       BCS_Server__WorkerCount: "4"

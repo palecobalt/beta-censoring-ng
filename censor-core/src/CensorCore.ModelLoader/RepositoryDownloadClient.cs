@@ -14,12 +14,12 @@ namespace CensorCore.ModelLoader
         }
 
         /// <summary>
-        /// Downloads one of NudeNet's v3 models from its fixed release asset and checks its SHA-256. One API request
-        /// instead of the three <see cref="DownloadModel"/> needs, which matters on shared IP addresses: GitHub allows
-        /// 60 unauthenticated API requests an hour per address.
+        /// Downloads a model from its fixed address and checks its SHA-256. For NudeNet's models that is one API
+        /// request instead of the three <see cref="DownloadModel"/> needs, which matters on shared IP addresses:
+        /// GitHub allows 60 unauthenticated API requests an hour per address.
         /// </summary>
         public static async Task<(string FileName, byte[] ModelData)> DownloadKnownModel(KnownModel model) {
-            var data = await DownloadAsset(KnownModels.DownloadUrl(model));
+            var data = await DownloadAsset(model.DownloadUrl);
             KnownModels.Verify(model, data);
             return (model.FileName, data);
         }

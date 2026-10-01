@@ -21,6 +21,9 @@ Both upstream repositories are included with their full history, in `censor-core
   v3 adds `COVERED_ANUS` and `COVERED_ARMPITS`, which Beta Protection doesn't request.
 - **Lower default thresholds for v3.** v3 scores run lower than v2's: `MinimumScore` 0.35,
   exposed female/male-specific classes 0.30, covered female-specific classes 0.45.
+- **Optional hotscreen models.** Other YOLO detectors exported by Ultralytics are recognised by
+  the class names in their ONNX metadata and get Ultralytics' own preprocessing (centred grey
+  letterbox, RGB); see "Models".
 - **`ModelPath` setting** (`BCS_ModelPath` env var, `--ModelPath`, or `ModelPath:` in `config.yml`).
 - **Detection-only REST endpoints.** `POST /censoring/detect` (`{imageDataUrl, censorOptions}`)
   and `POST /censoring/detectBatch` (`{imageDataUrls: [...], censorOptions}`) return
@@ -76,9 +79,44 @@ The server uses the model file it finds in its own folder, the folder it is star
 system temp folder (`640m` before `320n` before any other `.onnx` file), and downloads `640m.onnx`
 into its own folder when it finds none. `Model: 320n` (or `640m`) in `config.yml`, or the
 `BCS_Model` environment variable, makes it use and download that model only; `ModelPath` points at
-a specific file or folder. `scripts/fetch-models.sh` downloads both models into `models/` for the
-Docker build, and checks their SHA-256 as the server does. NudeNet and its models are published by
-[notAI-tech](https://github.com/notAI-tech/NudeNet) under the AGPL-3.0.
+a specific file or folder. `scripts/fetch-models.sh` downloads both models (and the first hotscreen
+model below) into `models/` for the Docker build, and checks their SHA-256 as the server does.
+NudeNet and its models are published by [notAI-tech](https://github.com/notAI-tech/NudeNet) under
+the AGPL-3.0.
+
+### Optional: hotscreen models
+
+The [hotscreen detection models](https://huggingface.co/Perfectfox256/hotscreen-detection-models)
+are YOLO11 detectors published on Hugging Face by the developer of the HotScreen application
+(the `yolo-07-2025` files, AGPL-3.0). The server only uses or downloads one when asked to:
+
+| `Model` setting | File | Size | Per image on a CPU | Notes |
+|---|---|---|---|---|
+| `hotscreen-n640` | `hs-real-y11n-640-fp32.onnx` | 10 MB | about 0.1 s | trained on photos |
+| `hotscreen-anime-s640` | `hs-real-anime-y11s-640-fp32.onnx` | 36 MB | about 0.2 s | trained on photos and drawings |
+
+`Model: hotscreen-n640` in `config.yml` (or `BCS_Model`) downloads that file from Hugging Face
+into the server's folder and checks its SHA-256; the download is pinned to one revision of their
+repository. The other files of `yolo-07-2025` (320 px, fp16) work through `ModelPath`. Their
+classes are reported under the same names as NudeNet's, so Beta Protection's settings apply
+unchanged; they have no `COVERED_BELLY`, `COVERED_ARMPITS` or `COVERED_ANUS`, and their extra
+`EYE` class isn't used. The thresholds are the same as for NudeNet v3.
+
+What is known about them so far, from 23 non-explicit photos and drawings on a 4 vCPU VM:
+
+- The server finds what the publisher's reference script finds: 96 of 99 detections for
+  `hotscreen-n640`, mean box IoU 0.94, mean score difference 0.025 (reference run with an
+  anti-aliasing resize, as the server's is; small and borderline detections vary with the resize
+  method).
+- With the default thresholds `hotscreen-n640` reported 100 areas where `640m` reported 57, in
+  about a seventh of the CPU time. Most of the extra ones are faces (34 against 18) and covered
+  breasts, buttocks and genitalia (22 against 4). In an earlier look at 14 photos about half of
+  its extra detections were right (mostly faces `640m` missed) and about a third were wrong
+  (backs of heads as faces, backs as covered breasts, a statue); `640m` found a few feet and an
+  armpit that it missed.
+- Not tested: explicit images, whether `hotscreen-anime-s640` is better on drawings, a GPU. There
+  is no test set with known answers behind any of this, and nothing is published about the
+  models' training data, which is why `640m` stays the default.
 
 ## Run from a release download
 
@@ -117,7 +155,7 @@ no longer publishes macOS x64 builds; use Docker there.
 ## Run with Docker
 
 Ready-made images are on GitHub's registry, built by the release workflow from the tagged
-sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with both models),
+sources: `ghcr.io/palecobalt/beta-censoring-ng` (the server, with the models),
 `ghcr.io/palecobalt/censor-proxy` (the proxy) and `ghcr.io/palecobalt/video-censor` (the video
 service, used by the proxy); all for x86-64 Linux, CPU only.
 Download [`docker-compose.yml`](docker-compose.yml) into a folder and run:
@@ -138,8 +176,9 @@ Then in Beta Protection's settings set **Backend Host** to `http://localhost:238
 (and the video service) on `127.0.0.1` only; to reach it from other machines, change the port to
 `"2382:2382"` (see "Network access").
 
-- Model: `BCS_ModelPath=/app/models/640m.onnx` (default) or `/app/models/320n.onnx`; both are in
-  the image.
+- Model: `BCS_ModelPath=/app/models/640m.onnx` (default), `/app/models/320n.onnx` or
+  `/app/models/hs-real-y11n-640-fp32.onnx` (the optional hotscreen model, see "Models"); all three
+  are in the image.
 - Workers: `BCS_Server__WorkerCount` (about half the host's cores).
 - Other settings: copy `config.example.yml` to `config.yml` and mount it at `/app/config.yml`.
   Environment variables override the file.
@@ -417,6 +456,8 @@ the Docker build does this. The censoring API works either way.
   Their commit histories are included unchanged apart from the move into subdirectories.
 - [NudeNet](https://github.com/notAI-tech/NudeNet) by notAI-tech (AGPL-3.0) provides the detection
   models, which the server downloads at its first start; the Docker images include them.
+- The optional [hotscreen detection models](https://huggingface.co/Perfectfox256/hotscreen-detection-models)
+  by Perfectfox256 (AGPL-3.0) are downloaded only when selected; the Docker images include one.
 - [ImageSharp](https://github.com/SixLabors/ImageSharp) and ImageSharp.Drawing by Six Labors are used under
   the Apache License 2.0, as granted by the Six Labors Split License for open source software.
 

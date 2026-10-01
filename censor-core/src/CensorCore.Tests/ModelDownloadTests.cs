@@ -58,6 +58,30 @@ public class ModelDownloadTests : IDisposable {
     }
 
     [Fact]
+    public void AHotscreenModelIsFoundByItsPublishedFileName() {
+        Put(_first, "640m.onnx", "hs-real-y11n-640-fp32.onnx");
+
+        Assert.Equal("hs-real-y11n-640-fp32.onnx", Loader("hotscreen-n640").FindModel(new[] { _first })!.Name);
+        Assert.Equal("hs-real-y11n-640-fp32.onnx", Loader("hs-real-y11n-640-fp32.onnx").FindModel(new[] { _first })!.Name);
+        Assert.Null(Loader("hotscreen-anime-s640").FindModel(new[] { _first }));
+        // not configured: NudeNet's models stay first
+        Assert.Equal("640m.onnx", Loader().FindModel(new[] { _first })!.Name);
+    }
+
+    [Fact]
+    public void EveryKnownModelHasAPinnedAddressAndChecksum() {
+        Assert.Equal(KnownModels.Model640m, KnownModels.Default);
+        Assert.All(KnownModels.All, model => {
+            Assert.StartsWith("https://", model.DownloadUrl);
+            Assert.Matches("^[0-9a-f]{64}$", model.Sha256);
+            Assert.EndsWith(".onnx", model.FileName);
+            // the size is shown while downloading
+            Assert.EndsWith("MB", model.Description.Split(',')[1].Trim());
+        });
+        Assert.DoesNotContain("/main/", KnownModels.HotscreenN640.DownloadUrl);
+    }
+
+    [Fact]
     public void AnUnknownModelNameIsAnError() {
         Assert.Throws<ArgumentException>(() => Loader("960x"));
     }

@@ -50,8 +50,11 @@ builder.Logging.AddFilter("Microsoft.AspNetCore", level => level > LogLevel.Warn
 
 // Add services to the container.
 
-// Model: 640m (default) or 320n, looked for and downloaded when missing. ModelPath: a specific .onnx file or a folder.
-var modelHelp = $"Download 640m.onnx or 320n.onnx from {KnownModels.ReleasePage}, put it in the server's folder, or set ModelPath to its location.";
+// Model: 640m (default), 320n or a hotscreen model, looked for and downloaded when missing. ModelPath: a specific
+// .onnx file or a folder.
+var modelHelp = KnownModels.Find(builder.Configuration["Model"]) is { Publisher: not "NudeNet" } wanted
+    ? $"Download {wanted.FileName} from {wanted.Page}, put it in the server's folder, or set ModelPath to its location."
+    : $"Download 640m.onnx or 320n.onnx from {KnownModels.ReleasePage}, put it in the server's folder, or set ModelPath to its location.";
 ModelLoader loader;
 try {
     loader = new ModelLoaderBuilder()
@@ -76,7 +79,7 @@ try {
     Console.Error.WriteLine($"ERROR: no model file was found, and downloading one failed: {e.Message}");
 }
 if (model == null) {
-    Console.Error.WriteLine($"ERROR: could not get the NudeNet model. {modelHelp}");
+    Console.Error.WriteLine($"ERROR: could not get the model. {modelHelp}");
     Environment.Exit(1);
 }
 Console.WriteLine($"Using the model from {loader.Source}");

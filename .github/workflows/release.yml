@@ -60,7 +60,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
             --title "$GITHUB_REF_NAME" --notes "Draft: release notes to follow." *.zip SHA256SUMS
 
-  # CPU images for docker-compose.yml: the server (with both models), the video service and the proxy
+  # CPU images for docker-compose.yml: the server (with the models), the video service and the proxy
   images:
     runs-on: ubuntu-latest
     steps:

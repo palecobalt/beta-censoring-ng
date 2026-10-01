@@ -62,6 +62,12 @@ namespace CensorCore
         public bool SkipGifs { get; set; } = false;
         public NudeNetModelVersion ModelVersion { get; private set; } = NudeNetModelVersion.V2;
         public int InputSize { get; private set; } = 320;
+        /// <summary>
+        /// The classes of a v3 or other YOLO model in output order, under the v2 names; null for a class that isn't censored.
+        /// </summary>
+        public IReadOnlyList<string?> Labels { get; private set; } = V3ClassList;
+        // NudeNet's own models get the preprocessing of its reference implementation, other YOLO models Ultralytics'
+        private bool _ultralyticsInput;
 
         private void Log(string message) {
             if (Verbose) {
@@ -154,9 +160,29 @@ namespace CensorCore
         private void DetectModelVersion() {
             // v3 (YOLOv8) models have a single [batch, 4 + classes, anchors] output, v2 has separate boxes/scores/labels
             var outputs = this._session.OutputMetadata.Values.ToList();
-            if (outputs.Count == 1 && outputs[0].Dimensions.Length == 3 && outputs[0].Dimensions[1] == V3ClassList.Length + 4) {
-                ModelVersion = NudeNetModelVersion.V3;
-                InputSize = GetV3InputSize();
+            if (outputs.Count == 1 && outputs[0].Dimensions.Length == 3) {
+                var classes = outputs[0].Dimensions[1] - 4;
+                this._session.ModelMetadata.CustomMetadataMap.TryGetValue("names", out var metadata);
+                var names = ModelLabels.ParseNames(metadata);
+                var labels = names?.Select(ModelLabels.Translate).ToArray();
+                if (labels != null && labels.Length == classes && !labels.SequenceEqual(V3ClassList)) {
+                    // another detector exported by Ultralytics (the hotscreen models): its classes are in its metadata
+                    if (labels.All(l => l == null)) {
+                        throw new NotSupportedException($"this model detects none of the classes the server censors (its classes: {string.Join(", ", names!)})");
+                    }
+                    ModelVersion = NudeNetModelVersion.V3;
+                    InputSize = GetV3InputSize();
+                    Labels = labels;
+                    _ultralyticsInput = true;
+                    var unused = names!.Where((_, i) => labels[i] == null).ToList();
+                    Console.WriteLine($"Loaded YOLO model with {classes} classes ({InputSize}x{InputSize} input)"
+                        + (unused.Count > 0 ? $"; not used: {string.Join(", ", unused)}" : string.Empty));
+                    return;
+                }
+                if (classes == V3ClassList.Length) {
+                    ModelVersion = NudeNetModelVersion.V3;
+                    InputSize = GetV3InputSize();
+                }
             }
             Console.WriteLine($"Loaded NudeNet {ModelVersion} model" + (ModelVersion == NudeNetModelVersion.V3 ? $" ({InputSize}x{InputSize} input)" : string.Empty));
         }
@@ -174,9 +200,10 @@ namespace CensorCore
         }
 
         private TensorLoadOptions<float> GetDefaultLoadOptions() {
-            return ModelVersion == NudeNetModelVersion.V3
-                ? new NudeNetV3LoadOptions(InputSize)
-                : new NudeNetLoadOptions();
+            if (ModelVersion != NudeNetModelVersion.V3) {
+                return new NudeNetLoadOptions();
+            }
+            return _ultralyticsInput ? new YoloLoadOptions(InputSize) : new NudeNetV3LoadOptions(InputSize);
         }
 
         public async Task<ImageResult?> RunModel<TTensor>(byte[] data, TensorLoadOptions<TTensor> loadOptions, MatchOptions? options = null) {
@@ -304,7 +331,8 @@ namespace CensorCore
             var values = output is DenseTensor<float> dense ? dense.Buffer.ToArray() : output.ToArray();
             var img = imgData.SampledImage ?? imgData.SourceImage;
             // the model input is the sampled image scaled so its longest side fits the input size
-            var scale = (float)Math.Max(img.Width, img.Height) / InputSize;
+            var input = LetterboxGeometry.For(img.Width, img.Height, InputSize, _ultralyticsInput);
+            var scale = 1 / input.Scale;
 
             var candidates = new List<(float[] Box, float Score, int ClassIndex)>();
             for (int i = 0; i < anchors; i++) {
@@ -317,13 +345,13 @@ namespace CensorCore
                         classIndex = c - 4;
                     }
                 }
-                if (score < V3CandidateScore) {
+                if (score < V3CandidateScore || Labels[classIndex] == null) {
                     continue;
                 }
                 var width = values[2 * anchors + i] * scale;
                 var height = values[3 * anchors + i] * scale;
-                var x1 = Math.Clamp(values[i] * scale - width / 2, 0, img.Width);
-                var y1 = Math.Clamp(values[anchors + i] * scale - height / 2, 0, img.Height);
+                var x1 = Math.Clamp((values[i] - input.Left) * scale - width / 2, 0, img.Width);
+                var y1 = Math.Clamp((values[anchors + i] - input.Top) * scale - height / 2, 0, img.Height);
                 var x2 = x1 + Math.Min(width, img.Width - x1);
                 var y2 = y1 + Math.Min(height, img.Height - y1);
                 candidates.Add((new[] { x1, y1, x2, y2 }, score, classIndex));
@@ -337,7 +365,7 @@ namespace CensorCore
                     continue;
                 }
                 kept.Add(candidate.Box);
-                var className = V3ClassList[candidate.ClassIndex];
+                var className = Labels[candidate.ClassIndex]!;
                 if (candidate.Score >= matchOptions.GetScoreForClass(className)) {
                     var box = candidate.Box.ToBox(imgData.ScaleFactor, imgData.SampleOffset);
                     results.Add(new Classification(box, candidate.Score, className));

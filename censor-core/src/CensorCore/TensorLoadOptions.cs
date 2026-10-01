@@ -57,10 +57,8 @@ namespace CensorCore {
         }
 
         public override Image<Rgba32> PrepareImage(Image<Rgba32> image) {
-            var scale = (float)InputSize / Math.Max(image.Width, image.Height);
-            var width = Math.Max(1, (int)Math.Round(image.Width * scale));
-            var height = Math.Max(1, (int)Math.Round(image.Height * scale));
-            return image.Clone(ctx => ctx.Resize(width, height, KnownResamplers.Triangle));
+            var box = LetterboxGeometry.For(image.Width, image.Height, InputSize, centred: false);
+            return image.Clone(ctx => ctx.Resize(box.Width, box.Height, KnownResamplers.Triangle));
         }
 
         private void LoadV3Pixels(Tensor<float> data, Point point, ref Rgba32 pixel) {
@@ -69,6 +67,44 @@ namespace CensorCore {
             data[0, 0, y, x] = pixel.B / 255F;
             data[0, 1, y, x] = pixel.G / 255F;
             data[0, 2, y, x] = pixel.R / 255F;
+        }
+    }
+
+    /// <summary>
+    /// Load options for other YOLO detectors exported by Ultralytics (the hotscreen models).
+    /// </summary>
+    /// <remarks>
+    /// Ultralytics' own preprocessing: the image is scaled so its longest side matches the model input, centred
+    /// on a grey square, and loaded as NCHW RGB in the 0-1 range.
+    /// </remarks>
+    public class YoloLoadOptions : TensorLoadOptions<float> {
+        private static readonly Rgba32 Padding = new Rgba32(114, 114, 114);
+
+        public int InputSize { get; }
+
+        public YoloLoadOptions(int inputSize = 640) : base(img => new[] {1, 3, inputSize, inputSize}) {
+            InputSize = inputSize;
+            LoadPixel = LoadYoloPixels;
+        }
+
+        public override Image<Rgba32> PrepareImage(Image<Rgba32> image) {
+            var box = LetterboxGeometry.For(image.Width, image.Height, InputSize, centred: true);
+            using var resized = image.Clone(ctx => ctx.Resize(box.Width, box.Height, KnownResamplers.Triangle));
+            var canvas = new Image<Rgba32>(InputSize, InputSize, Padding);
+            resized.ProcessPixelRows(canvas, (source, target) => {
+                for (int y = 0; y < source.Height; y++) {
+                    source.GetRowSpan(y).CopyTo(target.GetRowSpan(y + box.Top).Slice(box.Left));
+                }
+            });
+            return canvas;
+        }
+
+        private void LoadYoloPixels(Tensor<float> data, Point point, ref Rgba32 pixel) {
+            var y = point.Y;
+            var x = point.X;
+            data[0, 0, y, x] = pixel.R / 255F;
+            data[0, 1, y, x] = pixel.G / 255F;
+            data[0, 2, y, x] = pixel.B / 255F;
         }
     }
 
