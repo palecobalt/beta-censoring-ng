@@ -166,7 +166,7 @@ docker compose up -d
 
 For Beta Protection only the server is needed: `docker compose up -d beta-censoring`. Without a
 service name, this also starts the censoring proxy and the video service (see below), which are
-for browsers without the extension. `VERSION=v0.4.0` in a `.env` file pins a release;
+for browsers without the extension. `VERSION=v0.5.0` in a `.env` file pins a release;
 the default is `latest`. To build the images from these sources instead, run
 `scripts/fetch-models.sh` once, then
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
