@@ -30,9 +30,16 @@ services:
     # flow_detail=0 and termlog_verbosity=warn keep the log to the add-on's own warnings
     command: mitmdump --listen-port 8080 --set flow_detail=0 --set termlog_verbosity=warn -s /addon/censor_proxy.py
     ports:
-      # set PROXY_PORT in .env if 8080 is taken on the host
-      - "${PROXY_PORT:-8080}:8080"
+      # In .env: PROXY_PORT if 8080 is taken on the host; PROXY_BIND to publish the proxy on one address only
+      # (127.0.0.1 for this computer, or the address of a VPN interface) instead of every network interface
+      - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-8080}:8080"
     environment:
+      # "user:password" that clients must give; without it anyone who can reach the port can use the proxy
+      PROXY_AUTH: ${PROXY_AUTH:-}
+      # hosts that are never intercepted (banks, sign-in pages), comma separated
+      CENSOR_PASSTHROUGH_HOSTS: ${CENSOR_PASSTHROUGH_HOSTS:-}
+      # apps that reject the proxy's certificate: "block" (their connections fail) or "pass" (uncensored)
+      PINNED_POLICY: ${PINNED_POLICY:-block}
       CENSOR_URL: http://beta-censoring:2382
       CENSOR_CONCURRENCY: "6"
       CENSOR_ON_ERROR: block

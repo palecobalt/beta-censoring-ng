@@ -4,4 +4,6 @@ FROM mitmproxy/mitmproxy:12.2.3
 LABEL org.opencontainers.image.source="https://github.com/palecobalt/beta-censoring-ng" \
       org.opencontainers.image.description="Censoring proxy for beta-censoring-ng: images and video clips are censored as they pass through" \
       org.opencontainers.image.licenses="GPL-3.0-or-later"
-COPY censor_proxy.py video_rules.py censor-options.json /addon/
+# without this, log lines stay in Python's buffer and `docker logs` shows nothing for a long time
+ENV PYTHONUNBUFFERED=1
+COPY censor_proxy.py video_rules.py access_rules.py censor-options.json /addon/

@@ -13,6 +13,11 @@ Configured with environment variables:
   VIDEO_MAX_MB        largest clip to censor (default 25)
   VIDEO_TIMEOUT       seconds to wait for the video service per clip (default 120)
   VIDEO_CACHE_MB      censored clips kept in memory for repeat and range requests (default 256)
+  PROXY_AUTH          "user:password" clients must give to use the proxy (not possible in transparent mode)
+  CENSOR_PASSTHROUGH_HOSTS  hosts (and their subdomains) that are never intercepted, such as banks and sign-in
+                      pages, comma separated; added to a few built-in sign-in hosts unless the list contains "none"
+  PINNED_POLICY       for apps that reject the proxy's certificate (pinned certificates): "block" (default) lets their
+                      connections fail, "pass" lets them through uncensored from the second attempt on
 """
 import asyncio
 import base64
@@ -24,8 +29,9 @@ import time
 import urllib.error
 import urllib.request
 
-from mitmproxy import http
+from mitmproxy import ctx, http, tls
 
+import access_rules
 import video_rules
 
 CENSOR_URL = os.environ.get("CENSOR_URL", "http://beta-censoring:2382").rstrip("/")
@@ -39,6 +45,11 @@ VIDEO_POLICY = (os.environ.get("VIDEO_POLICY") or ON_ERROR).lower()
 VIDEO_MAX_BYTES = int(float(os.environ.get("VIDEO_MAX_MB", "25")) * 1024 * 1024)
 VIDEO_TIMEOUT = float(os.environ.get("VIDEO_TIMEOUT", "120"))
 VIDEO_CACHE_BYTES = int(float(os.environ.get("VIDEO_CACHE_MB", "256")) * 1024 * 1024)
+PROXY_AUTH = os.environ.get("PROXY_AUTH", "").strip()
+PASSTHROUGH_HOSTS = access_rules.passthrough_hosts(os.environ.get("CENSOR_PASSTHROUGH_HOSTS"))
+PINNED_POLICY = os.environ.get("PINNED_POLICY", "block")
+# kept with the proxy's certificate authority, which docker-compose.yml stores in a volume
+PINNED_HOSTS_FILE = os.path.expanduser("~/.mitmproxy/pinned-hosts.txt")
 
 # formats Beta Censoring (ImageSharp 2) can decode
 SUPPORTED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff"}
@@ -232,4 +243,46 @@ class CensorProxy:
         return self._video_cache.get(url)
 
 
-addons = [CensorProxy()]
+class AccessControl:
+    """Proxy password, hosts that are never intercepted, and apps that reject the proxy's certificate."""
+
+    def __init__(self):
+        self._pinned = access_rules.PinnedHosts(PINNED_POLICY, PINNED_HOSTS_FILE)
+
+    def running(self):
+        transparent = any(str(mode).startswith("transparent") for mode in ctx.options.mode)
+        if PROXY_AUTH and not transparent:
+            ctx.options.update(proxyauth=PROXY_AUTH)
+        elif PROXY_AUTH:
+            logging.warning("censor-proxy: PROXY_AUTH is ignored, a transparent proxy can't ask for a password; "
+                            "limit who reaches it with firewall rules instead")
+        elif not transparent:
+            logging.warning("censor-proxy: no PROXY_AUTH set, so anyone who can reach the proxy port can use it")
+        logging.info(f"censor-proxy: never intercepting {', '.join(PASSTHROUGH_HOSTS) or 'no hosts'}; "
+                     f"apps that reject the certificate: {self._pinned.policy}")
+
+    @staticmethod
+    def _host(sni, context):
+        return sni or (context.server.address[0] if context.server.address else None)
+
+    @staticmethod
+    def _client(context):
+        return context.client.peername[0] if context.client.peername else None
+
+    def tls_clienthello(self, data: tls.ClientHelloData):
+        host = self._host(data.client_hello.sni, data.context)
+        if access_rules.matches(host, PASSTHROUGH_HOSTS) or self._pinned.should_pass(self._client(data.context), host):
+            # relayed as it is: not decrypted, not censored
+            data.ignore_connection = True
+
+    def tls_failed_client(self, data: tls.TlsData):
+        host = self._host(data.conn.sni, data.context)
+        client = self._client(data.context)
+        if self._pinned.record_failure(client, host):
+            outcome = ("it will be passed through uncensored for that device from now on" if self._pinned.policy == "pass"
+                       else "its connections stay blocked (PINNED_POLICY=pass would let them through uncensored)")
+            logging.warning(f"censor-proxy: {client} rejected the proxy's certificate for {host}: an app with a pinned "
+                            f"certificate, or a device without the proxy's CA installed; {outcome}")
+
+
+addons = [AccessControl(), CensorProxy()]
