@@ -6,9 +6,13 @@
     <IsPublishable>false</IsPublishable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="Flurl" Version="4.0.0" />
+    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="ModulEngine" Version="0.0.0-preview.0.5" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.12" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="4.1.2" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="3.1.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../censor-core/src/CensorCore/CensorCore.csproj" />
