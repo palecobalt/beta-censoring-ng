@@ -11,8 +11,14 @@
 set -eu
 
 action=-A
+# the two DROP rules go to the top of their chains: a VPN's own "accept everything from this interface" rule, or a
+# firewall's accept rules, would otherwise be matched first and the DROP never reached
+first="-I"
+top=" 1"
 if [ "${1:-}" = "--remove" ]; then
     action=-D
+    first=-D
+    top=
     shift
 fi
 if [ $# -lt 2 ]; then
@@ -35,8 +41,8 @@ for address in "$@"; do
     # hand them to the proxy
     echo "$ipt -t nat $action PREROUTING -i $iface -s $address -p tcp -m multiport --dports 80,443 -j REDIRECT --to-port $port"
     # no HTTP/3 (QUIC): it runs over UDP, which the proxy doesn't see, so browsers must fall back to TCP
-    echo "$ipt $action FORWARD -i $iface -s $address -p udp --dport 443 -j DROP"
+    echo "$ipt $first FORWARD$top -i $iface -s $address -p udp --dport 443 -j DROP"
 done
 echo "# the transparent port only takes redirected connections, so nobody can use it as an open proxy"
-echo "iptables $action INPUT -p tcp --dport $port -m mark ! --mark $mark -j DROP"
-echo "ip6tables $action INPUT -p tcp --dport $port -m mark ! --mark $mark -j DROP"
+echo "iptables $first INPUT$top -p tcp --dport $port -m mark ! --mark $mark -j DROP"
+echo "ip6tables $first INPUT$top -p tcp --dport $port -m mark ! --mark $mark -j DROP"

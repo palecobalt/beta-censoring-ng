@@ -20,6 +20,26 @@ def test_matches_hosts_and_subdomains_only():
     assert not matches(None, patterns)
 
 
+def test_connectivity_checks_are_recognised():
+    assert access_rules.is_connectivity_check("GET", "http", "/generate_204")
+    assert access_rules.is_connectivity_check("GET", "http", "/gen_204?x=1")
+    assert not access_rules.is_connectivity_check("GET", "https", "/generate_204")
+    assert not access_rules.is_connectivity_check("POST", "http", "/generate_204")
+    assert not access_rules.is_connectivity_check("GET", "http", "/generate_204/more")
+    assert not access_rules.is_connectivity_check("GET", "http", "/")
+
+
+def test_only_the_check_host_gets_a_tunnel_without_a_password():
+    defaults = passthrough_hosts(None)
+    assert access_rules.is_connectivity_check_tunnel("www.google.com", 443, defaults)
+    assert not access_rules.is_connectivity_check_tunnel("www.google.com", 80, defaults)
+    assert not access_rules.is_connectivity_check_tunnel("accounts.google.com", 443, defaults)
+    assert not access_rules.is_connectivity_check_tunnel("evil.example", 443, defaults + ["evil.example"])
+    assert not access_rules.is_connectivity_check_tunnel(None, 443, defaults)
+    # not when the host is intercepted: its requests would need the password anyway
+    assert not access_rules.is_connectivity_check_tunnel("www.google.com", 443, passthrough_hosts("none"))
+
+
 def test_defaults_can_be_extended_or_dropped():
     hosts = passthrough_hosts("mybank.example")
     assert "accounts.google.com" in hosts and "mybank.example" in hosts
@@ -51,6 +71,33 @@ def test_pass_policy_remembers_hosts_across_restarts():
         assert PinnedHosts("pass", path).should_pass("10.0.0.5", "api.app.example")
         # switching back to block ignores what was learned
         assert not PinnedHosts("block", path).should_pass("10.0.0.5", "api.app.example")
+
+
+def test_a_dropped_handshake_only_counts_when_it_keeps_happening():
+    pinned = PinnedHosts("pass")
+    # a browser closing connections it opened in advance
+    assert not pinned.record_failure("10.0.0.5", "images.example", rejected=False)
+    assert not pinned.record_failure("10.0.0.5", "images.example", rejected=False)
+    assert not pinned.should_pass("10.0.0.5", "images.example")
+    # a handshake that works in between starts the count again
+    pinned.record_success("10.0.0.5", "images.example")
+    assert not pinned.record_failure("10.0.0.5", "images.example", rejected=False)
+    assert not pinned.record_failure("10.0.0.5", "images.example", rejected=False)
+    assert not pinned.should_pass("10.0.0.5", "images.example")
+    # an app that hangs up every time
+    assert pinned.record_failure("10.0.0.5", "images.example", rejected=False)
+    assert pinned.should_pass("10.0.0.5", "images.example")
+
+
+def test_recognises_a_rejected_certificate_in_mitmproxys_error():
+    assert access_rules.is_rejection("The client does not trust the proxy's certificate for example.com "
+                                     "(OpenSSL Error([('SSL routines', '', 'tls alert certificate unknown')]))")
+    assert access_rules.is_rejection("OpenSSL Error([('SSL routines', '', 'tlsv1 alert unknown ca')])")
+    assert access_rules.is_rejection("OpenSSL Error([('SSL routines', '', 'sslv3 alert bad certificate')])")
+    assert not access_rules.is_rejection("The client disconnected during the handshake. If this happens consistently "
+                                         "for example.com, this may indicate that the client does not trust the "
+                                         "proxy's certificate.")
+    assert not access_rules.is_rejection(None)
 
 
 def test_unknown_policy_means_block():

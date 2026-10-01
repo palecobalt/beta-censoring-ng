@@ -269,6 +269,18 @@ class AccessControl:
     def _client(context):
         return context.client.peername[0] if context.client.peername else None
 
+    # The two hooks below run after mitmproxy's own password check, which has answered 407 by then when the request
+    # came without the password. Android's connectivity checks always do (see access_rules).
+    def http_connect(self, flow: http.HTTPFlow):
+        if (flow.response and flow.response.status_code == 407
+                and access_rules.is_connectivity_check_tunnel(flow.request.host, flow.request.port, PASSTHROUGH_HOSTS)):
+            flow.response = None
+
+    def requestheaders(self, flow: http.HTTPFlow):
+        if (flow.response and flow.response.status_code == 407
+                and access_rules.is_connectivity_check(flow.request.method, flow.request.scheme, flow.request.path)):
+            flow.response = http.Response.make(204)
+
     def tls_clienthello(self, data: tls.ClientHelloData):
         host = self._host(data.client_hello.sni, data.context)
         if access_rules.matches(host, PASSTHROUGH_HOSTS) or self._pinned.should_pass(self._client(data.context), host):
@@ -278,11 +290,14 @@ class AccessControl:
     def tls_failed_client(self, data: tls.TlsData):
         host = self._host(data.conn.sni, data.context)
         client = self._client(data.context)
-        if self._pinned.record_failure(client, host):
+        if self._pinned.record_failure(client, host, access_rules.is_rejection(data.conn.error)):
             outcome = ("it will be passed through uncensored for that device from now on" if self._pinned.policy == "pass"
                        else "its connections stay blocked (PINNED_POLICY=pass would let them through uncensored)")
             logging.warning(f"censor-proxy: {client} rejected the proxy's certificate for {host}: an app with a pinned "
                             f"certificate, or a device without the proxy's CA installed; {outcome}")
+
+    def tls_established_client(self, data: tls.TlsData):
+        self._pinned.record_success(self._client(data.context), self._host(data.conn.sni, data.context))
 
 
 addons = [AccessControl(), CensorProxy()]
