@@ -332,7 +332,8 @@ namespace CensorCore
             var img = imgData.SampledImage ?? imgData.SourceImage;
             // the model input is the sampled image scaled so its longest side fits the input size
             var input = LetterboxGeometry.For(img.Width, img.Height, InputSize, _ultralyticsInput);
-            var scale = 1 / input.Scale;
+            // image pixels per model pixel; as a division, since 1 / input.Scale rounds differently and moved boxes
+            var scale = (float)Math.Max(img.Width, img.Height) / InputSize;
 
             var candidates = new List<(float[] Box, float Score, int ClassIndex)>();
             for (int i = 0; i < anchors; i++) {
