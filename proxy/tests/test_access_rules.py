@@ -100,6 +100,19 @@ def test_recognises_a_rejected_certificate_in_mitmproxys_error():
     assert not access_rules.is_rejection(None)
 
 
+def test_forgets_the_oldest_entries_beyond_the_limit(monkeypatch):
+    monkeypatch.setattr(access_rules, "MAX_REMEMBERED", 3)
+    pinned = PinnedHosts("pass")
+    for n in range(5):
+        pinned.record_failure("10.0.0.5", f"host{n}.example")
+        pinned.record_failure("10.0.0.5", f"dropped{n}.example", rejected=False)
+    assert len(pinned._seen) == 3 and len(pinned._unexplained) == 3
+    assert not pinned.should_pass("10.0.0.5", "host0.example")
+    assert pinned.should_pass("10.0.0.5", "host4.example")
+    # a forgotten host is found again the next time it fails
+    assert pinned.record_failure("10.0.0.5", "host0.example")
+
+
 def test_unknown_policy_means_block():
     assert PinnedHosts("allow-everything").policy == "block"
 

@@ -80,7 +80,7 @@ public class ModelLoader {
         (string FileName, byte[] ModelData)? model = null;
         var known = _options.Model ?? KnownModels.Default;
         // only NudeNet's models can also be found by searching its releases
-        var fromReleases = known.Publisher == "NudeNet";
+        var fromReleases = known.InNudeNetReleases;
         if (!fromReleases || (!_options.GetClassifier && !_options.PreferBaseModel && _options.RepositorySlug == KnownModels.Repository)) {
             Console.WriteLine($"Downloading {known.Publisher}'s {known.FileName} ({known.Description.Split(',')[1].Trim()})...");
             try {

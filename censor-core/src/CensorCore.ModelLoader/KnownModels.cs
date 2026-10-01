@@ -6,7 +6,10 @@ namespace CensorCore.ModelLoader;
 /// A model the server can download: one file at a fixed address with a known SHA-256 (the same files as
 /// scripts/fetch-models.sh).
 /// </summary>
-public record KnownModel(string Name, string FileName, string DownloadUrl, string Sha256, string Description, string Publisher, string Page);
+public record KnownModel(string Name, string FileName, string DownloadUrl, string Sha256, string Description, string Publisher, string Page) {
+    /// <summary>Whether the model can also be found by searching NudeNet's releases when its fixed address fails.</summary>
+    public bool InNudeNetReleases { get; init; }
+}
 
 public static class KnownModels {
     public const string Repository = "notAI-tech/NudeNet";
@@ -33,7 +36,7 @@ public static class KnownModels {
 
     // the API asset address: direct release downloads can redirect to a login page
     private static KnownModel NudeNet(string name, long assetId, string sha256, string description) =>
-        new(name, name + ".onnx", $"https://api.github.com/repos/{Repository}/releases/assets/{assetId}", sha256, description, "NudeNet", ReleasePage);
+        new(name, name + ".onnx", $"https://api.github.com/repos/{Repository}/releases/assets/{assetId}", sha256, description, "NudeNet", ReleasePage) { InNudeNetReleases = true };
 
     private static KnownModel Hotscreen(string name, string fileName, string sha256, string description) =>
         new(name, fileName, $"{HotscreenPage}/resolve/{HotscreenRevision}/yolo-07-2025/{fileName}", sha256, description, "hotscreen", $"{HotscreenPage}/tree/main/yolo-07-2025");

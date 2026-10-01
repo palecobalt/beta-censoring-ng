@@ -123,6 +123,19 @@ class SameClipTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.posts, 1)
         self.assertEqual(late.response.headers["x-censored"], "1")
 
+    async def test_when_one_waiting_request_takes_over_the_others_wait_for_it(self):
+        abandoned, second, third = self.flow(), self.flow(), self.flow()
+        self.addon.responseheaders(abandoned)
+        waiting = asyncio.gather(self.fetch(second), self.fetch(third))
+        await asyncio.sleep(0.05)
+        self.addon.error(abandoned)
+        await waiting
+
+        self.assertEqual(self.posts, 1)
+        for flow in (second, third):
+            self.assertEqual(flow.response.status_code, 200)
+            self.assertEqual(flow.response.headers["x-censored"], "1")
+
     async def test_the_run_goes_on_for_the_others_when_its_own_browser_gives_up(self):
         first = self.flow()
         running = asyncio.create_task(self.fetch(first))

@@ -52,7 +52,7 @@ builder.Logging.AddFilter("Microsoft.AspNetCore", level => level > LogLevel.Warn
 
 // Model: 640m (default), 320n or a hotscreen model, looked for and downloaded when missing. ModelPath: a specific
 // .onnx file or a folder.
-var modelHelp = KnownModels.Find(builder.Configuration["Model"]) is { Publisher: not "NudeNet" } wanted
+var modelHelp = KnownModels.Find(builder.Configuration["Model"]) is { InNudeNetReleases: false } wanted
     ? $"Download {wanted.FileName} from {wanted.Page}, put it in the server's folder, or set ModelPath to its location."
     : $"Download 640m.onnx or 320n.onnx from {KnownModels.ReleasePage}, put it in the server's folder, or set ModelPath to its location.";
 ModelLoader loader;

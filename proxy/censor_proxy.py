@@ -209,18 +209,19 @@ class CensorProxy:
         response, url = flow.response, flow.request.pretty_url
         owner = flow.metadata.get("video_owner")
         outcome = None
-        if not owner:
+        while not owner and outcome is None:
             # another request got to this clip first: use its result, or its failure
             outcome = await self._video_pending.wait(url, VIDEO_WAIT) or self._cached_video(url)
             if outcome is None:
-                # it finished without leaving anything to use, so this request censors the clip after all
+                # it ended without leaving anything to use, so this request censors the clip after all, unless
+                # another waiting request has just done the same: then that one's run is waited for
                 owner = self._video_pending.start(url)
-            else:
-                logging.info(f"censor-proxy: used the result of another request for the same video {url[:120]}")
         if owner:
             outcome = await self._censor_owned_video(flow)
+        elif isinstance(outcome, video_rules.CachedVideo):
+            logging.info(f"censor-proxy: used the result of another request for the same video {url[:120]}")
         if not isinstance(outcome, video_rules.CachedVideo):
-            self._video_failure(flow, outcome or "another request for the same clip is still running")
+            self._video_failure(flow, outcome)
             return
         # a complete 200 without Accept-Ranges, so the browser doesn't ask the origin for (uncensored) ranges
         response.status_code, response.reason = 200, "OK"

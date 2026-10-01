@@ -36,6 +36,8 @@ def parse_hosts(text: str | None) -> list[str]:
 # A client that hangs up during the TLS handshake without saying why: browsers do that with connections they opened
 # in advance and then didn't need, so it only counts as rejecting the certificate after this many in a row.
 UNEXPLAINED_FAILURES = 3
+# client and host pairs remembered at most; the oldest are forgotten first, and found again if they still fail
+MAX_REMEMBERED = 5000
 
 
 def is_rejection(error: str | None) -> bool:
@@ -84,7 +86,8 @@ class PinnedHosts:
     def __init__(self, policy: str = "block", path: str | None = None):
         self.policy = "pass" if policy.strip().lower() == "pass" else "block"
         self._path = path
-        self._seen: set[tuple[str, str]] = set()
+        # a dict for its insertion order: the oldest entries are dropped when there are too many
+        self._seen: dict[tuple[str, str], None] = {}
         self._unexplained: dict[tuple[str, str], int] = {}
         if self.policy == "pass" and path and os.path.exists(path):
             try:
@@ -92,7 +95,7 @@ class PinnedHosts:
                     for line in f:
                         parts = line.split()
                         if len(parts) == 2:
-                            self._seen.add((parts[0], parts[1]))
+                            self._seen[(parts[0], parts[1])] = None
             except OSError:
                 pass
 
@@ -108,10 +111,12 @@ class PinnedHosts:
             return False
         if not rejected:
             self._unexplained[key] = self._unexplained.get(key, 0) + 1
-            if self._unexplained[key] < UNEXPLAINED_FAILURES:
+            self._trim(self._unexplained)
+            if self._unexplained.get(key, 0) < UNEXPLAINED_FAILURES:
                 return False
         self._unexplained.pop(key, None)
-        self._seen.add(key)
+        self._seen[key] = None
+        self._trim(self._seen)
         if self.policy == "pass" and self._path:
             try:
                 with open(self._path, "w") as f:
@@ -119,6 +124,11 @@ class PinnedHosts:
             except OSError:
                 pass
         return True
+
+    @staticmethod
+    def _trim(entries: dict) -> None:
+        while len(entries) > MAX_REMEMBERED:
+            del entries[next(iter(entries))]
 
     def record_success(self, client: str | None, host: str | None) -> None:
         """A handshake that worked: earlier dropped connections for this host were not about the certificate."""

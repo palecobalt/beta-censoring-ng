@@ -79,6 +79,11 @@ public class ModelDownloadTests : IDisposable {
             Assert.EndsWith("MB", model.Description.Split(',')[1].Trim());
         });
         Assert.DoesNotContain("/main/", KnownModels.HotscreenN640.DownloadUrl);
+        // only NudeNet's own models may be replaced by whatever its newest release has
+        Assert.True(KnownModels.Model640m.InNudeNetReleases);
+        Assert.True(KnownModels.Model320n.InNudeNetReleases);
+        Assert.False(KnownModels.HotscreenN640.InNudeNetReleases);
+        Assert.False(KnownModels.HotscreenAnimeS640.InNudeNetReleases);
     }
 
     [Fact]
