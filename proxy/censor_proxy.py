@@ -46,6 +46,8 @@ VIDEO_CENSOR_URL = os.environ.get("VIDEO_CENSOR_URL", "http://video-censor:2383"
 VIDEO_POLICY = (os.environ.get("VIDEO_POLICY") or ON_ERROR).lower()
 VIDEO_MAX_BYTES = int(float(os.environ.get("VIDEO_MAX_MB", "25")) * 1024 * 1024)
 VIDEO_TIMEOUT = float(os.environ.get("VIDEO_TIMEOUT", "120"))
+# how long a request waits for another request's run on the same clip: that run may itself have to queue first
+VIDEO_WAIT = 2 * VIDEO_TIMEOUT + 30
 VIDEO_CACHE_BYTES = int(float(os.environ.get("VIDEO_CACHE_MB", "256")) * 1024 * 1024)
 PROXY_AUTH = os.environ.get("PROXY_AUTH", "").strip()
 PASSTHROUGH_HOSTS = access_rules.passthrough_hosts(os.environ.get("CENSOR_PASSTHROUGH_HOSTS"))
@@ -72,6 +74,8 @@ class CensorProxy:
         self._video_semaphore = asyncio.Semaphore(2)
         self._video_cache = video_rules.VideoCache(VIDEO_CACHE_BYTES)
         self._video_cache_options = None
+        # clips being censored right now; further requests for the same clip wait for that run
+        self._video_pending = video_rules.PendingClips()
         self._options = {}
         self._options_mtime = None
 
@@ -94,11 +98,27 @@ class CensorProxy:
         if accept and UNSUPPORTED_ACCEPT.search(accept):
             flow.request.headers["accept"] = UNSUPPORTED_ACCEPT.sub("", accept).strip(" ,") or "*/*"
 
-    def request(self, flow: http.HTTPFlow):
+    async def request(self, flow: http.HTTPFlow):
         request = flow.request
         if request.method != "GET":
             return
-        cached = self._cached_video(request.pretty_url)
+        url = request.pretty_url
+        cached = self._cached_video(url)
+        if cached is None and url in self._video_pending:
+            # the same clip is being censored for an earlier request: answer from its result, without fetching the
+            # clip a second time
+            outcome = await self._video_pending.wait(url, VIDEO_WAIT)
+            if isinstance(outcome, video_rules.CachedVideo):
+                cached = outcome
+            elif outcome is not None and VIDEO_POLICY == "pass":
+                # fetched as usual and passed on without another attempt
+                flow.metadata["video_failed"] = outcome
+            elif outcome is not None:
+                logging.warning(f"censor-proxy: blocked video ({outcome}) {url[:120]}")
+                flow.response = http.Response.make(403, b"", {"content-type": "text/plain"})
+                self._make_blocked_video(flow.response)
+                flow.metadata["video_from_cache"] = True
+                return
         if cached is not None:
             status, headers, body = video_rules.cached_response(cached, request.headers.get("range"))
             flow.response = http.Response.make(status, body, headers)
@@ -117,12 +137,14 @@ class CensorProxy:
             flow.request.method, response.status_code, response.headers, flow.request.path, VIDEO_MAX_BYTES)
         if decision == video_rules.IGNORE:
             return
-        if decision == video_rules.CENSOR and VIDEO_CENSOR_URL:
-            # the body is buffered, then censored in response()
+        failed = flow.metadata.get("video_failed")
+        if decision == video_rules.CENSOR and VIDEO_CENSOR_URL and not failed:
+            # the body is buffered, then censored in response(): by this request if it is the first for the clip
             flow.metadata["censor_video"] = True
+            flow.metadata["video_owner"] = self._video_pending.start(flow.request.pretty_url)
             return
         url = flow.request.pretty_url[:120]
-        reason = reason or "video censoring is off"
+        reason = failed or reason or "video censoring is off"
         if VIDEO_POLICY == "pass":
             logging.info(f"censor-proxy: passing video uncensored ({reason}) {url}")
             response.stream = True
@@ -185,27 +207,59 @@ class CensorProxy:
 
     async def _censor_video(self, flow: http.HTTPFlow):
         response, url = flow.response, flow.request.pretty_url
-        content_type = video_rules.media_type(response.headers.get("content-type", "")) or "application/octet-stream"
-        body = response.get_content(strict=False) or b""
-        async with self._video_semaphore:
-            started = time.monotonic()
-            try:
-                result, censored = await asyncio.to_thread(self._censor_clip, body, content_type)
-            except Exception as e:
-                self._video_failure(flow, str(e))
-                return
-        video = video_rules.CachedVideo(result, "video/mp4" if censored else content_type, censored)
-        self._video_cache.put(url, video)
-        self._video_cache_options = self._options_mtime
+        owner = flow.metadata.get("video_owner")
+        outcome = None
+        if not owner:
+            # another request got to this clip first: use its result, or its failure
+            outcome = await self._video_pending.wait(url, VIDEO_WAIT) or self._cached_video(url)
+            if outcome is None:
+                # it finished without leaving anything to use, so this request censors the clip after all
+                owner = self._video_pending.start(url)
+            else:
+                logging.info(f"censor-proxy: used the result of another request for the same video {url[:120]}")
+        if owner:
+            outcome = await self._censor_owned_video(flow)
+        if not isinstance(outcome, video_rules.CachedVideo):
+            self._video_failure(flow, outcome or "another request for the same clip is still running")
+            return
         # a complete 200 without Accept-Ranges, so the browser doesn't ask the origin for (uncensored) ranges
         response.status_code, response.reason = 200, "OK"
         for name in ("content-range", "accept-ranges", "content-encoding"):
             response.headers.pop(name, None)
-        response.content = video.body
-        response.headers["content-type"] = video.content_type
-        response.headers["x-censored"] = "1" if censored else "0"
-        logging.info(f"censor-proxy: {'censored' if censored else 'nothing to censor in'} {len(body)} byte video "
-                     f"in {time.monotonic() - started:.1f}s {url[:120]}")
+        response.content = outcome.body
+        response.headers["content-type"] = outcome.content_type
+        response.headers["x-censored"] = "1" if outcome.censored else "0"
+
+    async def _censor_owned_video(self, flow: http.HTTPFlow):
+        """Has the clip censored and tells the requests waiting for it; returns the CachedVideo or the failure."""
+        url = flow.request.pretty_url
+        content_type = video_rules.media_type(flow.response.headers.get("content-type", "")) or "application/octet-stream"
+        body = flow.response.get_content(strict=False) or b""
+        # from here on error() leaves the waiting requests to this run, even if this request's client has gone
+        flow.metadata["video_running"] = True
+        outcome = "censoring was interrupted"
+        try:
+            async with self._video_semaphore:
+                started = time.monotonic()
+                try:
+                    result, censored = await asyncio.to_thread(self._censor_clip, body, content_type)
+                except Exception as e:
+                    outcome = str(e) or type(e).__name__
+                    return outcome
+            outcome = video_rules.CachedVideo(result, "video/mp4" if censored else content_type, censored)
+            self._video_cache.put(url, outcome)
+            self._video_cache_options = self._options_mtime
+            logging.info(f"censor-proxy: {'censored' if censored else 'nothing to censor in'} {len(body)} byte video "
+                         f"in {time.monotonic() - started:.1f}s {url[:120]}")
+            return outcome
+        finally:
+            self._video_pending.finish(url, outcome)
+
+    def error(self, flow: http.HTTPFlow):
+        # the request that was going to censor a clip ended before it had the clip (its browser gave up, say): one of
+        # the requests waiting for it takes over
+        if flow.metadata.get("video_owner") and not flow.metadata.get("video_running"):
+            self._video_pending.finish(flow.request.pretty_url, None)
 
     def _censor_clip(self, body: bytes, content_type: str):
         request = urllib.request.Request(f"{VIDEO_CENSOR_URL}/censor", data=body, headers={

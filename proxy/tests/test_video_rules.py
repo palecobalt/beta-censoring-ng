@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 import unittest
@@ -113,3 +114,45 @@ class VideoCacheTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PendingClipsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_only_the_first_request_for_a_clip_starts_a_run(self):
+        pending = video_rules.PendingClips()
+        self.assertTrue(pending.start("http://a/clip.mp4"))
+        self.assertFalse(pending.start("http://a/clip.mp4"))
+        self.assertTrue(pending.start("http://a/other.mp4"))
+        self.assertIn("http://a/clip.mp4", pending)
+
+    async def test_waiters_get_the_outcome_of_the_run(self):
+        pending = video_rules.PendingClips()
+        pending.start("u")
+        waiters = [asyncio.create_task(pending.wait("u", 5)) for _ in range(3)]
+        await asyncio.sleep(0)
+        video = CachedVideo(b"censored", "video/mp4", True)
+        pending.finish("u", video)
+        self.assertEqual(await asyncio.gather(*waiters), [video] * 3)
+        self.assertNotIn("u", pending)
+        # the next request starts a new run
+        self.assertTrue(pending.start("u"))
+
+    async def test_waiters_get_the_failure_too(self):
+        pending = video_rules.PendingClips()
+        pending.start("u")
+        waiter = asyncio.create_task(pending.wait("u", 5))
+        await asyncio.sleep(0)
+        pending.finish("u", "video service returned 500")
+        self.assertEqual(await waiter, "video service returned 500")
+
+    async def test_nothing_to_wait_for_without_a_run(self):
+        self.assertIsNone(await video_rules.PendingClips().wait("u", 5))
+
+    async def test_a_waiter_gives_up_after_the_timeout_without_ending_the_run(self):
+        pending = video_rules.PendingClips()
+        pending.start("u")
+        self.assertIsInstance(await pending.wait("u", 0.01), str)
+        self.assertIn("u", pending)
+        other = asyncio.create_task(pending.wait("u", 5))
+        await asyncio.sleep(0)
+        pending.finish("u", "done")
+        self.assertEqual(await other, "done")

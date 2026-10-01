@@ -1,5 +1,6 @@
 """Decisions about video requests and responses, kept free of mitmproxy so they can be unit tested."""
 
+import asyncio
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -149,6 +150,44 @@ class VideoCache:
         video = self._items.pop(key, None)
         if video is not None:
             self._size -= len(video.body)
+
+
+class PendingClips:
+    """Clips that are being censored right now, by URL.
+
+    A browser asks for the same clip several times at once: a first probe, the request it plays from, and retries
+    when the first answer is slow. Only the first of them has the clip censored; the others wait here for its
+    outcome: the censored CachedVideo, the reason as text when censoring failed, or None when the first request
+    never got as far as censoring, in which case a waiting request takes over."""
+
+    def __init__(self):
+        self._futures: dict[str, asyncio.Future] = {}
+
+    def __contains__(self, url: str) -> bool:
+        return url in self._futures
+
+    def start(self, url: str) -> bool:
+        """True when nobody is censoring this clip yet: the caller does it, and calls finish() whatever happens."""
+        if url in self._futures:
+            return False
+        self._futures[url] = asyncio.get_running_loop().create_future()
+        return True
+
+    def finish(self, url: str, outcome: "CachedVideo | str | None") -> None:
+        future = self._futures.pop(url, None)
+        if future is not None and not future.done():
+            future.set_result(outcome)
+
+    async def wait(self, url: str, timeout: float) -> "CachedVideo | str | None":
+        """The outcome of the run in progress for this clip; None when there is none (any more)."""
+        future = self._futures.get(url)
+        if future is None:
+            return None
+        try:
+            # shielded: one waiter giving up must not cancel the result for the others
+            return await asyncio.wait_for(asyncio.shield(future), timeout)
+        except asyncio.TimeoutError:
+            return "gave up waiting for another request for the same clip"
 
 
 def _int(value) -> int | None:
