@@ -1,0 +1,17 @@
+# Transparent mode for the proxy (Linux hosts only): devices whose traffic is routed through this computer, for
+# example phones using it as a VPN exit node, are censored without any proxy setting on them. See docs/phone.md.
+#   docker compose -f docker-compose.yml -f docker-compose.transparent.yml up -d
+# Then add the firewall rules that scripts/transparent-rules.sh prints for your devices.
+services:
+  censor-proxy:
+    # the proxy has to see the redirected connections in the host's own network stack to learn where they were going
+    network_mode: host
+    ports: !reset []
+    # the ordinary proxy stays available on this computer only; the transparent listener is reached through the
+    # firewall redirect, and the rules keep everyone else away from it
+    command: >
+      mitmdump --mode regular@127.0.0.1:${PROXY_PORT:-8080} --mode transparent@${TRANSPARENT_PORT:-8081}
+      --set flow_detail=0 --set termlog_verbosity=warn -s /addon/censor_proxy.py
+    environment:
+      CENSOR_URL: http://127.0.0.1:2382
+      VIDEO_CENSOR_URL: http://127.0.0.1:${VIDEO_CENSOR_PORT:-2383}

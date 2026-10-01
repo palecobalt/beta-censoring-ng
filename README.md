@@ -191,6 +191,12 @@ instance whose add-on (`proxy/censor_proxy.py`) sends every image response to Be
 hands the censored image to the browser. Any browser can use it, but most sites are HTTPS, so the
 proxy has to decrypt traffic with its own certificate authority, and the browser must trust it.
 
+**Phones:** [docs/phone.md](docs/phone.md) covers Android and iOS, at home through the phone's proxy setting or
+anywhere through your own VPN, including what the proxy's certificate means for your security.
+
+**Access:** the proxy listens on every network interface. Set `PROXY_AUTH=user:password` in `.env` so only you can
+use it, or `PROXY_BIND=127.0.0.1` to keep it to this computer.
+
 **Firefox setup** (Firefox has its own certificate store, so this affects only Firefox):
 
 1. Settings → Network Settings → Manual proxy configuration: HTTP Proxy `<docker-host>`, port
@@ -226,7 +232,12 @@ of each other.
   it in line with the video service's limit), seconds to wait for the video service, and memory for
   censored clips kept for repeat and range requests.
 - `PROXY_PORT` (in `.env`): the host port the proxy is published on, if 8080 is already taken
-  (default 8080).
+  (default 8080). `PROXY_BIND`: the address it is published on (default: every interface).
+- `PROXY_AUTH`: `user:password` that clients must give.
+- `CENSOR_PASSTHROUGH_HOSTS`: hosts (with their subdomains) that are never intercepted, such as banks and sign-in
+  pages. The sign-in hosts of Google, Apple and Microsoft are built in.
+- `PINNED_POLICY`: `block` (default) or `pass` for apps that reject the proxy's certificate; see
+  [docs/phone.md](docs/phone.md).
 
 **Behaviour and limits:**
 
