@@ -272,11 +272,11 @@ of each other.
   censored clips kept for repeat and range requests.
 - `PROXY_PORT` (in `.env`): the host port the proxy is published on, if 8080 is already taken
   (default 8080). `PROXY_BIND`: the address it is published on (default: every interface).
-- `PROXY_AUTH`: `user:password` that clients must give.
+- `PROXY_AUTH`: `user:password` that clients must give. Android's check for internet access is answered without it.
 - `CENSOR_PASSTHROUGH_HOSTS`: hosts (with their subdomains) that are never intercepted, such as banks and sign-in
-  pages. The sign-in hosts of Google, Apple and Microsoft are built in.
-- `PINNED_POLICY`: `block` (default) or `pass` for apps that reject the proxy's certificate; see
-  [docs/phone.md](docs/phone.md).
+  pages. The sign-in hosts of Google, Apple and Microsoft and `www.google.com` (that check again) are built in.
+- `PINNED_POLICY`: `block` (default) or `pass` for apps that reject the proxy's certificate, which on a phone is
+  nearly every app that isn't a browser; see [docs/phone.md](docs/phone.md).
 
 **Behaviour and limits:**
 

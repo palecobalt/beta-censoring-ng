@@ -13,11 +13,13 @@ Configured with environment variables:
   VIDEO_MAX_MB        largest clip to censor (default 25)
   VIDEO_TIMEOUT       seconds to wait for the video service per clip (default 120)
   VIDEO_CACHE_MB      censored clips kept in memory for repeat and range requests (default 256)
-  PROXY_AUTH          "user:password" clients must give to use the proxy (not possible in transparent mode)
+  PROXY_AUTH          "user:password" clients must give to use the proxy (not possible in transparent mode);
+                      Android's connectivity checks are let through without it
   CENSOR_PASSTHROUGH_HOSTS  hosts (and their subdomains) that are never intercepted, such as banks and sign-in
-                      pages, comma separated; added to a few built-in sign-in hosts unless the list contains "none"
-  PINNED_POLICY       for apps that reject the proxy's certificate (pinned certificates): "block" (default) lets their
-                      connections fail, "pass" lets them through uncensored from the second attempt on
+                      pages, comma separated; added to a few built-in hosts unless the list contains "none"
+  PINNED_POLICY       for apps that reject the proxy's certificate (on a phone: most apps other than browsers):
+                      "block" (default) lets their connections fail, "pass" lets them through uncensored from the
+                      second attempt on
 """
 import asyncio
 import base64
@@ -293,8 +295,8 @@ class AccessControl:
         if self._pinned.record_failure(client, host, access_rules.is_rejection(data.conn.error)):
             outcome = ("it will be passed through uncensored for that device from now on" if self._pinned.policy == "pass"
                        else "its connections stay blocked (PINNED_POLICY=pass would let them through uncensored)")
-            logging.warning(f"censor-proxy: {client} rejected the proxy's certificate for {host}: an app with a pinned "
-                            f"certificate, or a device without the proxy's CA installed; {outcome}")
+            logging.warning(f"censor-proxy: {client} rejected the proxy's certificate for {host}: an app that only "
+                            f"trusts built-in or its own certificates, or a device without the proxy's CA; {outcome}")
 
     def tls_established_client(self, data: tls.TlsData):
         self._pinned.record_success(self._client(data.context), self._host(data.conn.sni, data.context))
