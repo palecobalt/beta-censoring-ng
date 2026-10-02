@@ -21,14 +21,27 @@ RUN dotnet publish beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS dotnet-runtime
 
-# ONNX Runtime 1.26 is built against CUDA 12 and cuDNN 9
-FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04
-RUN apt-get update && apt-get install -y --no-install-recommends libicu70 && rm -rf /var/lib/apt/lists/*
-# The image's CUDA forward-compatibility libcuda only works on datacenter GPUs; on GeForce cards it
-# fails with "CUDA failure 804", so remove it and use the host driver's libcuda instead
-RUN rm -f /etc/ld.so.conf.d/00-compat-*.conf && rm -rf /usr/local/cuda-*/compat && ldconfig
+# ONNX Runtime 1.26 is built against CUDA 12 and cuDNN 9 (1.27 and later need CUDA 13). NVIDIA's runtime image has
+# 3.9 GB of libraries; the CUDA provider uses the ones collected here (the list ONNX Runtime's own Python package
+# installs: cudart, cublas, cufft, curand, nvrtc, cudnn), 2.5 GB.
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu22.04 AS cuda
+RUN mkdir /cuda-libs && cd /usr/local/cuda/lib64 \
+    && cp -a libcudart.so.* libcublas.so.* libcublasLt.so.* libcufft.so.* libcurand.so.* libnvrtc.so.* libnvrtc-builtins.so.* /cuda-libs/ \
+    && cp -a /usr/lib/x86_64-linux-gnu/libcudnn*.so.* /cuda-libs/
+
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libicu70 && rm -rf /var/lib/apt/lists/*
+COPY --from=cuda /cuda-libs/ /usr/local/cuda/lib64/
+RUN echo /usr/local/cuda/lib64 > /etc/ld.so.conf.d/cuda.conf && ldconfig
+# as in NVIDIA's own images: tells the NVIDIA container toolkit to add the host driver's libraries. Their image's
+# forward-compatibility libcuda, which fails with "CUDA failure 804" on GeForce cards, is not copied.
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 COPY --from=dotnet-runtime /usr/share/dotnet /usr/share/dotnet
 RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+LABEL org.opencontainers.image.source="https://github.com/palecobalt/beta-censoring-ng" \
+      org.opencontainers.image.description="Beta Censoring server (NudeNet v3) for NVIDIA GPUs: image censoring backend for Beta Protection" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later AND AGPL-3.0-only"
 WORKDIR /app
 COPY --from=build /app .
 COPY models/320n.onnx models/640m.onnx models/hs-real-y11n-640-fp32.onnx ./models/

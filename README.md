@@ -193,15 +193,19 @@ scripts/fetch-models.sh
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
-The GPU images aren't published yet, so this builds them from the sources.
+The server's GPU image isn't published, so this builds it from the sources. It is 3.2 GB: it
+contains the CUDA libraries ONNX Runtime uses and no others. The video service needs no image of
+its own: the ordinary one encodes with NVENC when it is given the GPU (driver 531 or newer), and
+with x264 on the CPU otherwise; its first log line says which.
 
 or put `COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml` in a `.env` file so plain
 `docker compose` commands use it.
 
 - **Requirements:** an NVIDIA driver with CUDA 12 support and the NVIDIA container toolkit.
   ONNX Runtime 1.26 is the newest release built for CUDA 12; 1.27 and later need CUDA 13
-  (driver 580+). The image removes NVIDIA's forward-compatibility `libcuda`, which only works on
-  datacenter GPUs and fails with "CUDA failure 804" on GeForce cards.
+  (driver 580+), which is why the server stays on 1.26. The image uses the host driver's
+  `libcuda`; NVIDIA's forward-compatibility one, which only works on datacenter GPUs and fails
+  with "CUDA failure 804" on GeForce cards, is not in it.
 - **Fallback:** if CUDA can't start, the server logs a warning and runs on the CPU. Check with
   `docker logs beta-censoring | grep CUDA`.
 - **GPU memory** (640m on an RTX 3060 Ti): about 400 MiB after the first image, levelling off
