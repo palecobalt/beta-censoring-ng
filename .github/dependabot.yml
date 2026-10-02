@@ -19,6 +19,9 @@ updates:
       # upgraded by hand: the CPU and GPU packages together, with the CUDA version in Dockerfile.gpu and a
       # comparison of the detections before and after
       - dependency-name: "Microsoft.ML.OnnxRuntime*"
+      # FusionCache 2 logs every cache operation with its key, and the key is the whole image: needs hashed keys first
+      - dependency-name: ZiggyCreatures.FusionCache
+        update-types: ["version-update:semver-major"]
       # ImageSharp 4 comes with ImageSharp.Drawing 3, which replaces the drawing API: a port, not an update
       - dependency-name: "SixLabors.ImageSharp*"
         update-types: ["version-update:semver-major"]
