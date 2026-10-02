@@ -27,6 +27,8 @@ updates:
       # the original author's packages: their later alpha versions ask for different versions of each other, and
       # `npm ci` refuses to install them together
       - dependency-name: "@silveredgold/*"
+      # their components want exactly this version of the icons
+      - dependency-name: "@vicons/ionicons5"
   - package-ecosystem: pip
     directory: /video
     schedule:
