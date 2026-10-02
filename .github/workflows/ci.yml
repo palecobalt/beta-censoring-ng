@@ -16,8 +16,11 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
-      - name: Build the server
-        run: dotnet build -c Release beta-censoring/src/BetaCensor.Server/BetaCensor.Server.csproj
+      # both solutions, so the projects the server doesn't use (the command line tool) are built too
+      - name: Build
+        run: |
+          dotnet build -c Release censor-core/src/CensorCore.sln
+          dotnet build -c Release beta-censoring/src/BetaCensor.sln
       - name: Test censor-core
         run: dotnet test censor-core/src/CensorCore.Tests/CensorCore.Tests.csproj
       - name: Test the server

@@ -16,6 +16,12 @@ updates:
       # MediatR 13 and later are no longer under the Apache licence
       - dependency-name: MediatR
         versions: [">=13"]
+      # upgraded by hand: the CPU and GPU packages together, with the CUDA version in Dockerfile.gpu and a
+      # comparison of the detections before and after
+      - dependency-name: "Microsoft.ML.OnnxRuntime*"
+      # ImageSharp 4 comes with ImageSharp.Drawing 3, which replaces the drawing API: a port, not an update
+      - dependency-name: "SixLabors.ImageSharp*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /beta-censoring/src/BetaCensor.Web.Status/ClientApp
     schedule:

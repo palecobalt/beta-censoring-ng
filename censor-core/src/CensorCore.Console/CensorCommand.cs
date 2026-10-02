@@ -8,7 +8,7 @@ using TextCopy;
 namespace CensorCore.Console;
 
 public class CensorCommand : AsyncCommand<CensorCommand.CensorCommandSettings> {
-    public override async Task<int> ExecuteAsync(CommandContext context, CensorCommandSettings settings) {
+    public override async Task<int> ExecuteAsync(CommandContext context, CensorCommandSettings settings, CancellationToken cancellationToken) {
         var imagePath = settings.ImagePath == null ? null : Path.IsPathFullyQualified(settings.ImagePath) ? settings.ImagePath : Path.GetFullPath(settings.ImagePath);
         if (imagePath == null || !File.Exists(imagePath)) {
             AnsiConsole.MarkupLine("[red]ERROR! [/] Could not load source image file!");

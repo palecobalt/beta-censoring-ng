@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Flurl" Version="3.0.6" />
+    <PackageReference Include="Flurl" Version="4.0.0" />
     <!-- 1.26 is the newest release built for CUDA 12 (later ones need CUDA 13 drivers).
          Build with -p:OnnxRuntimeGpu=true for CUDA support on Linux (CUDA 12 + cuDNN 9). -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" Condition="'$(OnnxRuntimeGpu)' != 'true'" />
