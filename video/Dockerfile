@@ -3,7 +3,7 @@
 # GPU: --build-arg BASE=nvidia gives ffmpeg 7.1 with NVENC, which needs NVIDIA driver 550 or newer.
 ARG BASE=cpu
 
-FROM python:3.12-slim-trixie AS cpu
+FROM python:3.14-slim-trixie AS cpu
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 
 FROM jrottenberg/ffmpeg:7.1-nvidia2204 AS nvidia

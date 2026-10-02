@@ -1,4 +1,5 @@
-# Dependency updates, grouped so each ecosystem makes one pull request a month.
+# Dependency updates, grouped so each ecosystem makes one pull request a month. New major versions of NuGet packages
+# come as pull requests of their own: each of them is a porting job to look at separately.
 version: 2
 updates:
   - package-ecosystem: nuget
@@ -10,6 +11,11 @@ updates:
     groups:
       nuget:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # MediatR 13 and later are no longer under the Apache licence
+      - dependency-name: MediatR
+        versions: [">=13"]
   - package-ecosystem: npm
     directory: /beta-censoring/src/BetaCensor.Web.Status/ClientApp
     schedule:
@@ -17,6 +23,10 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    ignore:
+      # the original author's packages: their later alpha versions ask for different versions of each other, and
+      # `npm ci` refuses to install them together
+      - dependency-name: "@silveredgold/*"
   - package-ecosystem: pip
     directory: /video
     schedule:
@@ -40,3 +50,7 @@ updates:
     groups:
       docker:
         patterns: ["*"]
+    ignore:
+      # the CUDA version has to match what ONNX Runtime's GPU build was made for (see Dockerfile.gpu)
+      - dependency-name: nvidia/cuda
+        update-types: ["version-update:semver-major"]

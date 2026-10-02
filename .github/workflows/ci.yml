@@ -23,13 +23,27 @@ jobs:
       - name: Test the server
         run: dotnet test beta-censoring/src/BetaCensor.Server.Tests/BetaCensor.Server.Tests.csproj
 
+  # the status page front end, built as the release workflow and the Dockerfiles build it
+  status-page:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - name: Build the status page
+        working-directory: beta-censoring/src/BetaCensor.Web.Status/ClientApp
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
   python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install ffmpeg and dependencies
         run: |
           sudo apt-get update -q
