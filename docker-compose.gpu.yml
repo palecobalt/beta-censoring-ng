@@ -1,4 +1,4 @@
-# GPU override for docker-compose.yml. The GPU images aren't published yet, so this builds them:
+# GPU override for docker-compose.yml. The server's GPU image isn't published, so this builds it:
 #   scripts/fetch-models.sh
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 # (or set COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml in .env)
@@ -21,13 +21,10 @@ services:
               device_ids: ["${GPU_DEVICE_ID:-0}"]
               capabilities: [gpu]
 
-  # NVENC encoding on the same GPU
+  # NVENC encoding on the same GPU: the ordinary image, given the GPU. Its log says which encoder it uses.
   video-censor:
-    build:
-      context: ./video
-      args:
-        BASE: nvidia
-    image: video-censor-gpu
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
     deploy:
       resources:
         reservations:
